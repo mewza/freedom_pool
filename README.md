@@ -18,9 +18,15 @@ int main(int argc, char *argv[])
     bigpool.ExtendPool( 1024LL * 1024LL * 8LL ); // 8 MB
 }
 
-LICENSE: Free to use to anyone for any purposes! Because I didn't come up with original concept, although
-I did, but someone already done it, so I decided to just released my wrapper solution for free because
-of this. Go ahead use it as you wish... It speed up my app by about 30%, not kidding...
+This type of allocation is cross-thread safe, what does it mean? it means you can bigpool.malloc() in one thread,
+and bigpool.free() in another without a problem. I also tried to make it self-expanding based on memory usage,
+but I still recommend that you measure your app's memory usage and pre-grow it for entire app's usage, because
+ExtendPool() uses realloc() and it isn't thread-safe, so you can't do cross-thread stuff.
+
+LICENSE: Free to use to anyone for any purposes! Because I didn't come up with original concept, 
+although I did, but someone already done it, so I decided to just released my wrapper solution 
+for free because of this. Go ahead use it as you wish... It speed up my app by about 30%, 
+not kidding...
 
 I hope your app will run faster and this code will benefit you/your company... Enjoy.
 
