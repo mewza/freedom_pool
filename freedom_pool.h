@@ -54,16 +54,16 @@ public:
         m_Data = NULL;
         m_Lock.exit();
     }
-    __inline bool IsFull() const { return m_FreeSize == 0; };
-    __inline bool IsEmpty() const { return m_FreeSize == m_MaxSize; };
-    __inline int64_t GetMaxSize() const { return m_MaxSize; }
-    __inline int64_t GetFreeSize() const { return m_FreeSize; }
-    __inline int64_t GetUsedSize() const{ return m_MaxSize - m_FreeSize; }
+    inline bool IsFull() const { return m_FreeSize == 0; };
+    inline bool IsEmpty() const { return m_FreeSize == m_MaxSize; };
+    inline int64_t GetMaxSize() const { return m_MaxSize; }
+    inline int64_t GetFreeSize() const { return m_FreeSize; }
+    inline int64_t GetUsedSize() const{ return m_MaxSize - m_FreeSize; }
 
-    __inline int64_t GetNumFreeBlocks() const {
+    inline int64_t GetNumFreeBlocks() const {
          return m_FreeBlocksByOffset.size();
      }
-    __inline int64_t GetMaxFreeBlockSize() const {
+    inline int64_t GetMaxFreeBlockSize() const {
          return !m_FreeBlocksBySize.empty() ? m_FreeBlocksBySize.rbegin()->first : 0;
      }
     
