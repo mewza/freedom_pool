@@ -4,13 +4,14 @@ FreedomPool v1.0
 This is the most efficient block-pool memory management system you can find. I tried many before writing my own:
 rpmalloc, tlsf, many tlsf clones.
 
-I tested it live in a multimedia rich project I am working on that has OpenGL, and audio 
-DSP, it works great no weird crashes. Solid.
+I tested it live in a multimedia rich project I am working on which heavily uses OpenGL, and audio 
+DSP, it works great no strange crashes. Solid.
 
 This code is partially based off this block allocator concept:
 https://www.codeproject.com/Articles/1180070/Simple-Variable-Size-Memory-Block-Allocator
 
-This is how you use it in your app, in main.mm/.cpp you make a static allocation of class and initialzie it in main.
+This is how you would use it in your app, in main.mm/.cpp you make a static allocation of class and iniitializae it
+to the max size of your app's memory usage.
 
 FreedomPool bigpool;
 int main(int argc, char *argv[])
@@ -23,11 +24,9 @@ and bigpool.free() in another without a problem. I also tried to make it self-ex
 but I still recommend that you measure your app's memory usage and pre-grow it for entire app's usage, because
 ExtendPool() uses realloc() and it isn't thread-safe, so you can't do cross-thread stuff.
 
-LICENSE: Free to use to anyone for any purposes! Because I didn't come up with original concept, 
-although I did, but someone already done it, so I decided to just released my wrapper solution 
-for free because of this. Go ahead use it as you wish... It speed up my app by about 30%, 
-not kidding...
+LICENSE: Freeware- use it as you please. As is. Because I didn't come up with original concept, 
+although I thought of it before I discovered someone already done it, decided to releasse my wrapper.
 
-I hope your app will run faster and this code will benefit you/your company... Enjoy.
+It will speed up your app by about 30%, not kidding... Enjoy
 
 Dmitry
