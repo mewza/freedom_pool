@@ -29,6 +29,8 @@
 //#define DEBUG fprintf
 #define DEBUG_PRINTF
 
+//#define DISABLE_NEWDELETE_OVERRIDE
+
 class FreedomPool
 {
     enum {
@@ -39,20 +41,20 @@ public:
     {
         internal = true;
         
-        (void)m_FreeBlocksByOffset.empty();
-        (void)m_FreeBlocksBySize.empty();
+        m_FreeBlocksByOffset.empty();
+        m_FreeBlocksBySize.empty();
         
         m_MaxSize = 0;
         m_FreeSize = m_MaxSize;
         m_Lock.init();
         
-        m_Data = (uint8_t*)_malloc64( m_MaxSize );
-       // ExtendPool( 1024L ); // 1MB
+        m_Data = (uint8_t*) ::malloc( m_MaxSize );
+        ExtendPool( 1024L ); // 1MB
     }
     ~FreedomPool()
     {
         if (m_Data)
-            _free64(m_Data);
+            ::free(m_Data);
         m_Data = NULL;
         m_Lock.exit();
     }
@@ -72,7 +74,7 @@ public:
     void *calloc(size_t count, size_t size)
     {
         if (internal || !m_MaxSize)
-            return _malloc64(count * size);
+            return ::calloc(count, size);
         else
             return malloc(count * size);
     }
@@ -80,7 +82,7 @@ public:
     void *malloc(int64_t nb_bytes)
     {
         if (internal || !m_MaxSize) {
-            return _malloc64(nb_bytes);
+            return ::malloc(nb_bytes);
         }
        if (nb_bytes <= 0) {
            DEBUG_PRINTF(stderr, "FreedomPool: nb_bytes <= 0\n");
@@ -93,6 +95,15 @@ public:
             ExtendPool( GetMaxSize() - grow );
         }
         return malloc_internal(nb_bytes);
+       
+        /*
+        void *p, *p0 = malloc_internal(nb_bytes + MALLOC_V4SF_ALIGNMENT);
+        if (!p0) return (void *) 0;
+        ::memset(p0, 0, nb_bytes + MALLOC_V4SF_ALIGNMENT);
+        p = (void *) (((size_t) p0 + MALLOC_V4SF_ALIGNMENT) & (~((size_t) (MALLOC_V4SF_ALIGNMENT-1))));
+        *((void **) p - 1) = p0;
+         
+        return p;*/
     }
     
     void *realloc(void *p, int64_t new_size)
@@ -100,7 +111,7 @@ public:
         void *new_p;
         
         if (internal || !m_MaxSize)
-            return _realloc64(p, new_size);
+            return ::realloc(p, new_size);
         
         if (!p) return NULL;
         if (!(new_p = malloc(new_size)))
@@ -115,11 +126,11 @@ public:
     void free(void *p)
     {
         if (internal || !m_MaxSize) {
-            _free64(p);
+            ::free(p);
             return;
         }
-    //    if (p) free_internal(p);
-     if (p) free_internal(*((void **) p - 1));
+        if (p) free_internal(p);
+//        if (p) free_internal(*((void **) p - 1));
     }
     
      void ExtendPool(int64_t ExtraSize)
@@ -153,7 +164,7 @@ public:
          m_MaxSize += ExtraSize;
          m_FreeSize += ExtraSize;
 
-         m_Data = (uint8_t*)_realloc64(m_Data, m_MaxSize);
+         m_Data = (uint8_t*)::realloc(m_Data, m_MaxSize);
          assert(m_Data != NULL);
          
          
@@ -291,6 +302,8 @@ protected:
         m_Lock.unlock();
 
     }
+
+   
     void *_malloc64(int64_t nb_bytes)
     {
         void *p, *p0 = ::malloc(nb_bytes + 64);
@@ -335,6 +348,8 @@ protected:
 
 extern FreedomPool bigpool;
 
+#if !defined(DISABLE_NEWDELETE_OVERRIDE)
+
 #ifdef __cplusplus
 
 void *operator new(std::size_t n);
@@ -344,4 +359,6 @@ void operator delete[](void *p) throw();
 
 #endif // __cplusplus
 
-#endif // H_FREEDOM_POOL
+#endif // DISABLE_NEWDELETE_OVERRIDE
+
+#endif // H_DYN_ALLOC
