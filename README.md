@@ -1,8 +1,13 @@
-FreedomPool v1.1
-----------------
+FreedomPool v1.11
+-----------------
 
-NEW: Added 64-byte alignment for internal pool's blocks. I got a significant improvement on performance since I 
+NEW: (Retracted) 
+Added 64-byte alignment for internal pool's blocks. I got a significant improvement on performance since I 
 added this, but let me know if you experience any weird crashes.
+
+I rolled back to the old 1.0 release, no 64-byte alignment, why? because I experienced strange crashes,
+and now back to using 1.0 without any issues. If anyone wants to hack in 64-byte alignment do it yourself, and
+send me a copy!  Be well.
 
 This is the most efficient block-pool memory management system you can find. I tried many before writing my own:
 rpmalloc, tlsf, many tlsf clones.
