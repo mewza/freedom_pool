@@ -1,4 +1,4 @@
-// freedom_pool.h v1.2 (C)2023-2024 Dmitry Bodlyrev
+// freedom_pool.h v1.22 (C)2023-2024 Dmitry Bodlyrev
 //
 // This is the most efficient block-pool memory management system you can find. I tried many before writing my own:
 // rpmalloc, tlsf, etc.
@@ -30,6 +30,8 @@
 
 // fprintf
 #define DEBUG_PRINTF 
+
+#define OVERRIDDE_AFTER_MAIN
 
 //#define DISABLE_NEWDELETE_OVERRIDE
 //#define DISABLE_MALLOC_FREE_OVERRIDE
@@ -72,12 +74,12 @@ public:
         
         initialize_overrides();
         
-        m_MaxSize = 0;
+        m_MaxSize = FreedomPool::DEFAULT_GROW;
         m_FreeSize = m_MaxSize;
         m_Lock.init();
         
-        m_Data = (int8_t*) real_malloc( m_MaxSize );
-        ExtendPool( 1024L * 1024L); // 1MB
+        m_Data = (int8_t*) real_malloc( m_MaxSize ) ; //m_MaxSize );
+      //  ExtendPool( 1024L * 1024L); // 1MB
     }
     
     ~FreedomPool()
@@ -287,10 +289,11 @@ protected:
 
     __inline void *_Nullable aligned_realloc(void *_Nullable p, int64_t newSize)
     {
-        if (!p) return real_realloc(p, newSize);
-        if (*(int64_t*)((void **) p - 1) == TOKEN_ID)
-            return real_realloc(*((void **) p - 2), newSize);
-        else return real_realloc(p, newSize);
+        if (p && *(int64_t*)((void **) p - 1) == TOKEN_ID) {
+            *((void **) p - 2) = real_realloc(*((void **) p - 2), newSize);
+            return p;
+        } else
+            return real_realloc(p, newSize);
     }
     
     __inline void aligned_free(void *_Nullable p)
