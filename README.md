@@ -1,7 +1,9 @@
-FreedomPool v1.21
+FreedomPool v1.22
 -----------------
 
-NEW: I updated today to v1.21, 64-byte alignment isn't hooked up yet but the provisions are there, 
+v1.22: Fixed some small bugs in overrides related to #ifdef FREEDOM_DEBUG wrap wasn't in the right place
+
+I updated today to v1.21, 64-byte alignment isn't hooked up yet but the provisions are there, 
 I really need to just fuse it inside of block management itself, instead of creating another intermediate layer.
 I had 64-byte alignment working, but temporary disabled because for some reason it made not much performance difference.
 I added TOKEN_ID verification as a simple sanity check, and added a way to debug alloc/free for both C/C++ so you can 
