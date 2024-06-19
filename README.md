@@ -1,7 +1,8 @@
-FreedomPool v1.22
------------------
+FreedomPool v1.3
+----------------
 
-v1.22: Fixed some small bugs in overrides related to #ifdef FREEDOM_DEBUG wrap wasn't in the right place
+v1.3: Fixed serious and fundamental bugs, I don't think it was even working before, now it is working properly.
+      Added static allocation on top of dynamic heap model. Both should work.
 
 I updated today to v1.21, 64-byte alignment isn't hooked up yet but the provisions are there, 
 I really need to just fuse it inside of block management itself, instead of creating another intermediate layer.
@@ -53,5 +54,3 @@ ExtendPool() uses realloc() and it isn't thread-safe, so you can't do cross-thre
 
 LICENSE: Freeware- use it as you please. As is. Because I didn't come up with original concept, 
 although I thought of it before I discovered someone already done it, decided to releasse my wrapper.
-
-It will speed up your app by about 30%, not kidding... Enjoy. D.
