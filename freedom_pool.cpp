@@ -1,4 +1,4 @@
-//  freedom_pool.cpp v1.32 (C)2023-2024 Dmitry Bodlyrev
+//  freedom_pool.cpp v1.34 (C)2023-2024 Dmitry Bodlyrev
 //
 //  This is the most efficient block-pool memory management system you can find. 
 //   I tried many before writing my own: rpmalloc, tlsf, many tlsf clones
@@ -26,7 +26,7 @@ real_malloc_usable_size_ptr _Nullable real_malloc_usable_size = NULL;
 static size_t total_alloc = 0L;
 static size_t total_max_alloc = 0L;
 
-//#define FREEDOM_DEBUG
+#define FREEDOM_DEBUG
 //#define BREAK_ON_THRESH
 
 static const size_t MBYTE = 1048576;
@@ -69,24 +69,18 @@ void free(void *_Nullable p)
         DEBUG_PRINTF(stderr, "  free( %3lld MB ) : spc %3lld\n", (int64_t)(space/MBYTE), (int64_t)(total_alloc/MBYTE));
 #endif
     bigpool.free(p);
-    
 }
 
-/*
  size_t malloc_usable_size(const void *_Nullable ptr)
  {
- DEBUG_PRINTF(stderr, "malloc_usable_size( %ld )\n", (long)ptr);
- 
- if (!FreedomPool::real_malloc_usable_size)
- FreedomPool::initialize_overrides();
- 
- return bigpool.malloc_usable_size(ptr);
- }*/
+     DEBUG_PRINTF(stderr, "malloc_usable_size( %ld )\n", (long)ptr);
+     return bigpool.malloc_usable_size(ptr);
+ }
 
 
 size_t malloc_size(const void *_Nullable ptr)
 {
-    //  DEBUG_PRINTF(stderr, "malloc_size( %ld )\n", (long)ptr);
+    DEBUG_PRINTF(stderr, "malloc_size( %ld )\n", (long)ptr);
     
     return bigpool.malloc_size(ptr);
 }
@@ -201,6 +195,7 @@ void operator delete[](void *p) throw()
 #endif
 
 #endif
+
 
 
 
