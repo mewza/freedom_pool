@@ -75,24 +75,15 @@ to the max size of your app's memory usage.
        
        int main(int argc, char *argv[])
        {
-              char *s = bigpool.malloc(12);
-              // should print out 12
-              printf("allocated space for s: %d\n", bigpool.malloc_size(s)); 
+              char *s = (char*)bigpool.malloc(12);
+              // should print out 16
+              printf("allocated space for s: %d\n", (int)bigpool.malloc_size(s)); 
               bigpool.free(s);
-
-              // or if you commented out DISABLE_MALLOC_FREE_OVERRIDE
-
-              char *ss = malloc(12);
-              // should print out 12
-              printf("allocated space for ss: %d\n", bigpool.malloc_size(ss)); 
-              free(ss);
-
-              // and if you commented out also DISABLE_NEWDELETE_OVERRIDE
               
-              char *sss = new char[12];
-              // should print out 12
-              printf("allocated space for sss: %d\n", bigpool.malloc_size(sss)); 
-              delete[] sss;
+              char *s2 = new char[12];
+              // should print out 16
+              printf("allocated space for s2: %d\n", bigpool.malloc_size(s2)); 
+              delete[] s2;
 
               return 0;
        }
