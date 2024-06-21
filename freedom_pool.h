@@ -1,4 +1,4 @@
-//  freedom_pool.h v1.34 (C)2023-2024 Dmitry Bodlyrev
+//  freedom_pool.h v1.34 (C)2023-2024 DEMOS
 //
 //  This is the most efficient block-pool memory management system you can find. 
 //  I tried many before writing my own: rpmalloc, tlsf, etc.
@@ -128,8 +128,7 @@ public:
     void *_Nullable malloc(size_t nb_bytes)
     {
         if (!real_malloc) initialize_overrides();
-        
-        DEBUG_PRINTF(stderr, "m_Internal = %d\n", m_Internal);
+    
          if ( m_Internal || !m_MaxSize )
             return real_malloc(nb_bytes);
 
