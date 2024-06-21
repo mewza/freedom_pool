@@ -1,13 +1,13 @@
-//     freedom_pool.h v1.32 (C)2023-2024 Dmitry Bodlyrev
+//  freedom_pool.h v1.32 (C)2023-2024 Dmitry Bodlyrev
 //
-//      This is the most efficient block-pool memory management system you can find. I tried many before writing my own:
-//      rpmalloc, tlsf, etc.
-//     This code is partially based off this block allocator concept:
-//     https://www.codeproject.com/Articles/1180070/Simple-Variable-Size-Memory-Block-Allocator
+//  This is the most efficient block-pool memory management system you can find. 
+//  I tried many before writing my own: rpmalloc, tlsf, etc.
+//  This code is partially based off this block allocator concept:
+//  https://www.codeproject.com/Articles/1180070/Simple-Variable-Size-Memory-Block-Allocator
 //
-//     NEW (v1.31): Added a bunch of stuff, like the static memory allocation model which is very handy!
-//             New in 1.31: I went over all the code again and fixed a ton of bugs, if it crashes even once, 
-//             let me know plz. I will keep refining it until there are no more bugs!
+//  NEW (v1.31): Added a bunch of stuff, like the static memory allocation model which is very handy!
+//               New in 1.31: I went over all the code again and fixed a ton of bugs, if it crashes even once, 
+//               let me know plz. I will keep refining it until there are no more bugs!
 
 #pragma once
 
@@ -26,7 +26,7 @@
 #include <dispatch/queue.h>
 #include <assert.h>
 #include <malloc/malloc.h>
-#include "atomic.h"
+#include "atomic_lock.h"
 
 // fprintf
 #define DEBUG_PRINTF fprintf
