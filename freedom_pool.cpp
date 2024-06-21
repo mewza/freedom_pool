@@ -1,4 +1,4 @@
-//  freedom_pool.cpp v1.34 (C)2023-2024 Dmitry Bodlyrev
+//  freedom_pool.cpp v1.34 (C)2023-2024 DEMOS
 //
 //  This is the most efficient block-pool memory management system you can find. 
 //   I tried many before writing my own: rpmalloc, tlsf, many tlsf clones
