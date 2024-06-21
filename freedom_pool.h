@@ -1,13 +1,11 @@
-//  freedom_pool.h v1.32 (C)2023-2024 Dmitry Bodlyrev
+//  freedom_pool.h v1.34 (C)2023-2024 Dmitry Bodlyrev
 //
 //  This is the most efficient block-pool memory management system you can find. 
 //  I tried many before writing my own: rpmalloc, tlsf, etc.
 //  This code is partially based off this block allocator concept:
 //  https://www.codeproject.com/Articles/1180070/Simple-Variable-Size-Memory-Block-Allocator
 //
-//  NEW (v1.31): Added a bunch of stuff, like the static memory allocation model which is very handy!
-//               New in 1.31: I went over all the code again and fixed a ton of bugs, if it crashes even once, 
-//               let me know plz. I will keep refining it until there are no more bugs!
+//  NEW (v1.34): More bug fixes.
 
 #pragma once
 
@@ -26,7 +24,7 @@
 #include <dispatch/queue.h>
 #include <assert.h>
 #include <malloc/malloc.h>
-#include "atomic_lock.h"
+#include "atomic.h"
 
 // fprintf
 #define DEBUG_PRINTF fprintf
@@ -35,7 +33,7 @@
 //#define DISABLE_MALLOC_FREE_OVERRIDE
 
 // allocate on the stack (otherwise comment out)
-#define FREEDOM_STACK_ALLOC
+//#define FREEDOM_STACK_ALLOC
 
 static const size_t DEFAULT_GROW   = 50 * 1048576; // 50 MB
 static const size_t GROW_INCREMENT = 50 * 1048576; // 50 MB increment growth
@@ -68,10 +66,11 @@ class FreedomPool
 public:
     static const size_t MBYTE = 1048576;
 
-    FreedomPool()
+    FreedomPool():  m_Internal(true), m_Data(NULL), m_MaxSize(0), m_FreeSize(0)
     {
         initialize_overrides();
-        
+
+        m_Lock.init();
         if (sizeof(size_t) != sizeof(uint64_t)) {
             fprintf(stderr, "FreedomPool(): sizeof(size_t) != sizoef(uint64_t) Terminating!\n");
             raise(SIGINT);
@@ -79,16 +78,9 @@ public:
         m_FreeBlocksByOffset.empty();
         m_FreeBlocksBySize.empty();
         
-#ifndef FREEDOM_STACK_ALLOC
-        m_Data = (int8_t*) real_malloc( 0 ) ;
-#endif
-        m_MaxSize = 0;
-        m_FreeSize = m_MaxSize;
-
-        m_Internal = true;
         ExtendPool(poolsize);
         
-        printBlocks();
+       // printBlocks();
     }
     
     ~FreedomPool()
@@ -111,7 +103,6 @@ public:
     __inline size_t GetMaxFreeBlockSize() const {
         return !m_FreeBlocksBySize.empty() ? m_FreeBlocksBySize.rbegin()->first : 0;
     }
-    
     static void initialize_overrides()
     {
         if (!real_malloc) {
@@ -138,7 +129,8 @@ public:
     {
         if (!real_malloc) initialize_overrides();
         
-         if ( !m_MaxSize || !m_Internal )
+        DEBUG_PRINTF(stderr, "m_Internal = %d\n", m_Internal);
+         if ( m_Internal || !m_MaxSize )
             return real_malloc(nb_bytes);
 
         if (GetFreeSize() < nb_bytes + 3 * sizeof(size_t)) {
@@ -160,7 +152,7 @@ public:
     {
         if (!real_calloc) initialize_overrides();
         
-        if ( !m_MaxSize || !m_Internal )
+        if ( m_Internal || !m_MaxSize )
             return real_calloc(count, size);
         
         return Malloc(count * size);
@@ -169,27 +161,13 @@ public:
     void free(void *_Nullable p)
     {
         if (!real_free) initialize_overrides();
-        if ( !m_MaxSize || !m_Internal) {
+        if ( m_Internal || !m_MaxSize ) {
             real_free(p);
             return;
         }
-        LOG("free(): m_Internal: %d m_MaxSize: %lld", m_Internal, m_MaxSize/MBYTE);
         if (p && *(uint64_t*)((int8_t*)p - sizeof(uint64_t*)) == TOKEN_ID)
             Free(p);
         else if (p) real_free(p);
-    }
-    
-    size_t malloc_size(const void *_Nullable p)
-    {
-        if (!real_malloc_size) initialize_overrides();
-        
-        if ( !m_MaxSize || !m_Internal )
-            return real_malloc_size(p);
-        
-        if (p && *(uint64_t*)((int8_t*)p - sizeof(uint64_t*)) == TOKEN_ID)
-            return *((size_t *) p - 2);
-        else
-            return real_malloc_size(p);
     }
     
     void *_Nullable realloc(void *_Nullable p, size_t new_size)
@@ -199,7 +177,7 @@ public:
         
         if (!real_realloc) initialize_overrides();
         
-        if ( !m_MaxSize || !m_Internal )
+        if ( m_Internal || !m_MaxSize )
             return real_realloc(p, new_size);
         
         if (p && (*(uint64_t*)((int8_t*)p - sizeof(uint64_t*)) == TOKEN_ID))
@@ -216,14 +194,30 @@ public:
             return real_realloc(p, new_size);
     }
     
+    size_t malloc_size(const void *_Nullable p)
+    {
+        if (!real_malloc_size) initialize_overrides();
+        
+        if ( m_Internal || !m_MaxSize )
+            return real_malloc_size(p);
+        
+        if (p && *(uint64_t*)((int8_t*)p - sizeof(uint64_t*)) == TOKEN_ID)
+            return *((size_t *) p - 2) + 4;
+        else
+            return real_malloc_size(p);
+    }
+    
     size_t malloc_usable_size(const void *_Nullable p)
     {
         if (!real_malloc_usable_size) initialize_overrides();
         
-        if ( !m_MaxSize || !m_Internal )
+        if ( m_Internal || !m_MaxSize )
             return real_malloc_usable_size(p);
         
-        return internal_malloc_usable_size(p);
+        if (p && *(uint64_t*)((int8_t*)p - sizeof(uint64_t*)) == TOKEN_ID)
+            return *((size_t *) p - 2) + 4;
+        
+        return real_malloc_usable_size(p);
     }
     
     size_t ExtendPool(size_t ExtraSize)
@@ -235,7 +229,6 @@ public:
         }
 #endif
         m_Lock.lock();
-        m_Internal = true;
         
         size_t NewBlockOffset = m_MaxSize;
         size_t NewBlockSize   = ExtraSize;
@@ -266,7 +259,10 @@ public:
         m_MaxSize += ExtraSize;
         m_FreeSize += ExtraSize;
 #ifndef FREEDOM_STACK_ALLOC
-        m_Data = (int8_t*)real_realloc(m_Data, m_MaxSize);
+        if (!m_Data)
+            m_Data = (int8_t*)real_malloc(m_MaxSize);
+        else
+            m_Data = (int8_t*)real_realloc(m_Data, m_MaxSize);
 #endif
 
 #ifdef DILIGENT_DEBUG
@@ -274,9 +270,7 @@ public:
         if (!m_DbgDisableDebugValidation)
             DbgVerifyList();
 #endif
-        m_Internal = false;
         m_Lock.unlock();
-        
         return m_MaxSize;
     }
     
@@ -306,20 +300,7 @@ protected:
         // Iterator referencing this block in the multimap sorted by the block size
         TFreeBlocksBySizeMap::iterator OrderBySizeIt;
     } FreeBlockInfo;
-    
-    __inline size_t internal_malloc_usable_size(const void *_Nullable p)
-    {
-        if (p && *(uint64_t*)((void**) p - 1) == TOKEN_ID)
-            return *(size_t*)((void **) p - 2);
-        else
-            return real_malloc_usable_size(p);
-    }
-    
-    __inline void *_Nullable internal_calloc(size_t count, size_t size)
-    {
-        return Malloc(count * size);
-    }
-    
+
     void AddNewBlock(size_t Offset, size_t Size)
     {
         auto NewBlockIt = m_FreeBlocksByOffset.emplace(Offset, Size);
@@ -338,15 +319,15 @@ protected:
         if (m_FreeSize < Size) {
             m_Internal = false;
             m_Lock.unlock();
-            return nullptr;
+            return NULL;
         }
         
         // Get the first block that is large enough to encompass Size bytes
         auto SmallestBlockItIt = m_FreeBlocksBySize.lower_bound(Size);
         if(SmallestBlockItIt == m_FreeBlocksBySize.end()) {
-            m_Internal = true;
+            m_Internal = false;
             m_Lock.unlock();
-            return nullptr;
+            return NULL;
         }
         
         auto SmallestBlockIt = SmallestBlockItIt->second;
@@ -357,8 +338,9 @@ protected:
         m_FreeBlocksBySize.erase(SmallestBlockItIt);
         m_FreeBlocksByOffset.erase(SmallestBlockIt);
         
-        if (NewSize > 0)
+        if (NewSize > 0) {
             AddNewBlock(NewOffset, NewSize);
+        }
         
         m_FreeSize -= Size;
         *(size_t*)(&m_Data[Offset]) = Offset;
@@ -377,8 +359,6 @@ protected:
         m_Internal = true;
         
         uint64_t Token = *((uint64_t*)ptr - 1);
-        
-        // something is out of alignment
         
         if (Token != TOKEN_ID) {
             DEBUG_PRINTF(stderr, "WARNING: Trying to internal_free non-native pointer, incorrect tokenID\n");
@@ -465,5 +445,4 @@ void operator delete[](void *_Nullable p) throw();
 void reset_freedom_counters();
 
 extern FreedomPool<DEFAULT_GROW> bigpool;
-
 
