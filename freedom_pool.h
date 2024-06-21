@@ -1,18 +1,19 @@
-// freedom_pool.h v1.3 (C)2023-2024 Dmitry Bodlyrev
+//     freedom_pool.h v1.31 (C)2023-2024 Dmitry Bodlyrev
 //
-// This is the most efficient block-pool memory management system you can find. I tried many before writing my own:
-// rpmalloc, tlsf, etc.
-// This code is partially based off this block allocator concept:
-// https://www.codeproject.com/Articles/1180070/Simple-Variable-Size-Memory-Block-Allocator
+//      This is the most efficient block-pool memory management system you can find. I tried many before writing my own:
+//      rpmalloc, tlsf, etc.
+//     This code is partially based off this block allocator concept:
+//     https://www.codeproject.com/Articles/1180070/Simple-Variable-Size-Memory-Block-Allocator
 //
-// NEW (v1.3): Added a bunch of stuff as you can tell, like the static memory allocation model is very handy,
-//             but you cannot grow it dynamically, only initially. Enjoy
+//     NEW (v1.31): Added a bunch of stuff, like the static memory allocation model which is very handy!
+//             New in 1.31: I went over all the code again and fixed a ton of bugs, if it crashes even once, 
+//             let me know plz. I will keep refining it until there are no more bugs!
 
 #pragma once
 
 #include <stdlib.h>
 #include <assert.h>
-#include <pthread/pthread.h>
+
 #include <dlfcn.h>
 
 #ifdef __cplusplus
@@ -24,6 +25,7 @@
 #include <dispatch/queue.h>
 #include <assert.h>
 #include <malloc/malloc.h>
+#include "atomic.h"
 
 // fprintf
 #define DEBUG_PRINTF fprintf
@@ -34,10 +36,10 @@
 // allocate on the stack (otherwise comment out)
 #define FREEDOM_STACK_ALLOC
 
-static const int DEFAULT_GROW = 1000 * 1048576L; // 60 MB
+static const size_t DEFAULT_GROW = 300 * 1048576; // 60 MB
 
 #define MALLOC_V4SF_ALIGNMENT   64
-#define TOKEN_ID                (int64_t)'FREE'
+#define TOKEN_ID                (uint64_t)'FREE'
 
 typedef void *_Nullable (*real_malloc_ptr)(size_t);
 typedef void *_Nullable (*real_calloc_ptr)(size_t count, size_t size);
@@ -58,51 +60,15 @@ extern "C" {
     size_t malloc_usable_size(void *_Nullable ptr);
 }
 
-
-class AtomicLock {
-public:
-    AtomicLock() {
-        init();
-    }
-    void init() {
-        pthread_mutex_init( &_mutex, NULL);
-    }
-    void exit() {
-        pthread_mutex_destroy(&_mutex);
-    }
-    __inline void lock() {
-        pthread_mutex_lock(&_mutex);
-    }
-    __inline unsigned trylock() {
-        return pthread_mutex_trylock(&_mutex);
-    }
-    __inline void unlock() {
-        pthread_mutex_unlock(&_mutex);
-    }
-    __inline pthread_mutex_t *P() {
-        return &_mutex;
-    }
-    ~AtomicLock() {
-        exit();
-    }
-protected:
-    pthread_mutex_t _mutex;
-};
-template <int64_t poolsize = DEFAULT_GROW>
+template <size_t poolsize = DEFAULT_GROW>
 class FreedomPool
 {
-    enum {
-        InvalidOffset = -1
-    };
-    
 public:
-    static const int64_t MBYTE = 1048576;
+    static const size_t MBYTE = 1048576;
 
     FreedomPool()
     {
         initialize_overrides();
-        m_Lock.init();
-        
         m_FreeBlocksByOffset.empty();
         m_FreeBlocksBySize.empty();
         
@@ -125,18 +91,17 @@ public:
             real_free(m_Data);
         m_Data = NULL;
 #endif
-        m_Lock.exit();
     }
     __inline bool IsFull() const { return m_FreeSize == 0; };
     __inline bool IsEmpty() const { return m_FreeSize == m_MaxSize; };
-    __inline int64_t GetMaxSize() const { return m_MaxSize; }
-    __inline int64_t GetFreeSize() const { return m_FreeSize; }
-    __inline int64_t GetUsedSize() const{ return m_MaxSize - m_FreeSize; }
+    __inline size_t GetMaxSize() const { return m_MaxSize; }
+    __inline size_t GetFreeSize() const { return m_FreeSize; }
+    __inline size_t GetUsedSize() const{ return m_MaxSize - m_FreeSize; }
     
-    __inline int64_t GetNumFreeBlocks() const {
+    __inline size_t GetNumFreeBlocks() const {
         return m_FreeBlocksByOffset.size();
     }
-    __inline int64_t GetMaxFreeBlockSize() const {
+    __inline size_t GetMaxFreeBlockSize() const {
         return !m_FreeBlocksBySize.empty() ? m_FreeBlocksBySize.rbegin()->first : 0;
     }
     
@@ -162,67 +127,77 @@ public:
         }
     }
     
-    void *_Nullable malloc(int64_t nb_bytes)
+    void *_Nullable malloc(size_t nb_bytes)
     {
+        if (!real_malloc) initialize_overrides();
          if ( !m_MaxSize || !m_Internal )
             return real_malloc(nb_bytes);
-    
-        if (GetFreeSize() < nb_bytes + 3 * sizeof(int64_t)) {
-       // int64_t grow = GetMaxSize() - (GetUsedSize() + nb_bytes + 3 * sizeof(int64_t));
+
+        if (GetFreeSize() < nb_bytes + 3 * sizeof(size_t)) {
             DEBUG_PRINTF(stderr, "FreedomPool::malloc(): No space left trying to allocate %lld MB used %lld of %lld MB\n", nb_bytes/MBYTE, GetUsedSize()/MBYTE, GetMaxSize()/MBYTE);
             return NULL;
-        //ExtendPool( GetMaxSize() - grow );
+            //ExtendPool( GetMaxSize() - grow );
         }
         return Malloc(nb_bytes);
     }
     
-    void *_Nullable calloc(int64_t count, int64_t size)
+    void *_Nullable calloc(size_t count, size_t size)
     {
+        if (!real_calloc) initialize_overrides();
         if ( !m_MaxSize || !m_Internal )
             return real_calloc(count, size);
-        else
-            return Malloc(count * size);
+        return Malloc(count * size);
     }
     
     void free(void *_Nullable p)
     {
+        if (!real_free) initialize_overrides();
         if ( !m_MaxSize || !m_Internal)
             real_free(p);
-        else if (p && *((int64_t*)p - 1) == TOKEN_ID)
+        if (p && *(uint64_t*)((void**)p - 1) == TOKEN_ID)
             Free(p);
     }
     
-    int64_t malloc_size(const void *_Nullable p)
+    size_t malloc_size(const void *_Nullable p)
     {
-        return internal_malloc_size(p);
+        if (!real_malloc_size) initialize_overrides();
+        if ( !m_MaxSize || !m_Internal )
+            return real_malloc_size(p);
+        
+        if ( *(uint64_t*)((void **) p - 1) == TOKEN_ID)
+            return *((size_t *) p - 2);
+        else
+            return real_malloc_size(p);
     }
     
-    void *_Nullable realloc(void *_Nullable p, int64_t new_size)
+    void *_Nullable realloc(void *_Nullable p, size_t new_size)
     {
         void *new_p;
-        int64_t old_size = 0;
+        size_t old_size = 0;
         
+        if (!real_realloc) initialize_overrides();
         if ( !m_MaxSize || !m_Internal )
             return real_realloc(p, new_size);
         
-        if (p && (*((int64_t*)p - 1) == TOKEN_ID))
+        if (p && (*(uint64_t*)((void**)p - 1) == TOKEN_ID))
         {
-            if (p) old_size = internal_malloc_size(p);
+            old_size = *(size_t*)((void**)p - 2);
             if (old_size <= 0)
                 return real_malloc(new_size);
-            
             if (!(new_p = Malloc(new_size)))
                 return nullptr;
             memcpy(new_p, p, old_size);
-            
             Free(p);
             return new_p;
         } else
             return real_realloc(p, new_size);
     }
     
-    int64_t malloc_usable_size(const void *_Nullable p)
+    size_t malloc_usable_size(const void *_Nullable p)
     {
+        if (!real_malloc_usable_size) initialize_overrides();
+        if ( !m_MaxSize || !m_Internal )
+            return real_malloc_usable_size(p);
         return internal_malloc_usable_size(p);
     }
     
@@ -230,15 +205,15 @@ public:
     {
 #ifndef FREEDOM_STACK_ALLOC
         if (m_MaxSize) {
-            DEBUG_PRINTF(stderr, "FreedomPool isn't allowed to extend passed initial in static allocation. Initially set to %lld\n", ExtraSize/MBYTE);
+            DEBUG_PRINTF(stderr, "FreedomPool isn't allowed to extend passed initial in static allocation. Initially set to %ulld\n", ExtraSize/MBYTE);
             return m_MaxSize;
         }
 #endif
         m_Lock.lock();
-       // m_Internal = false;
+        m_Internal = true;
         
-        int64_t NewBlockOffset = m_MaxSize;
-        int64_t NewBlockSize   = ExtraSize;
+        size_t NewBlockOffset = m_MaxSize;
+        size_t NewBlockSize   = ExtraSize;
         
         DEBUG_PRINTF(stderr, "Expanding FreedomPool internal size to: %lld MB\n", ExtraSize/MBYTE);
         if (!m_FreeBlocksByOffset.empty())
@@ -268,13 +243,13 @@ public:
 #ifndef FREEDOM_STACK_ALLOC
         m_Data = (int8_t*)real_realloc(m_Data, m_MaxSize);
 #endif
-        
+
 #ifdef DILIGENT_DEBUG
         VERIFY_EXPR(m_FreeBlocksByOffset.size() == m_FreeBlocksBySize.size());
         if (!m_DbgDisableDebugValidation)
             DbgVerifyList();
 #endif
-      //  m_Internal = true;
+        m_Internal = false;
         m_Lock.unlock();
         
         return m_MaxSize;
@@ -293,45 +268,34 @@ protected:
     
     struct FreeBlockInfo;
     // Type of the map that keeps memory blocks sorted by their offsets
-    using TFreeBlocksByOffsetMap = std::map<int64_t, FreeBlockInfo>;
+    using TFreeBlocksByOffsetMap = std::map<size_t, FreeBlockInfo>;
     
     // Type of the map that keeps memory blocks sorted by their sizes
-    using TFreeBlocksBySizeMap = std::multimap<int64_t, typename TFreeBlocksByOffsetMap::iterator>;
+    using TFreeBlocksBySizeMap = std::multimap<size_t, typename TFreeBlocksByOffsetMap::iterator>;
     
     typedef struct FreeBlockInfo
     {
-        FreeBlockInfo(int64_t _Size) : Size(_Size) { }
+        FreeBlockInfo(size_t _Size) : Size(_Size) { }
         // Block size (no reserved space for the size of allocation)
-        int64_t Size;
+        size_t Size;
         // Iterator referencing this block in the multimap sorted by the block size
         TFreeBlocksBySizeMap::iterator OrderBySizeIt;
     } FreeBlockInfo;
     
-    int64_t internal_malloc_size(const void *_Nullable p)
+    __inline size_t internal_malloc_usable_size(const void *_Nullable p)
     {
-        if ( !m_Internal )
-            return real_malloc_size(p);
-        int64_t token = *(int64_t*)((void **) p - 1) ;
-        if ( token == TOKEN_ID)
-            return *((int64_t *) p - 2);
-        else
-            return real_malloc_size(p);
-    }
-    
-    __inline int64_t internal_malloc_usable_size(const void *_Nullable p)
-    {
-        if (m_Internal && *((int64_t *) p - 1) == TOKEN_ID)
-            return *((int64_t *) p - 2);
+        if (p && *(uint64_t*)((void**) p - 1) == TOKEN_ID)
+            return *(size_t*)((void **) p - 2);
         else
             return real_malloc_usable_size(p);
     }
     
-    __inline void *_Nullable internal_calloc(int64_t count, int64_t size)
+    __inline void *_Nullable internal_calloc(size_t count, size_t size)
     {
         return Malloc(count * size);
     }
     
-    void AddNewBlock(int64_t Offset, int64_t Size)
+    void AddNewBlock(size_t Offset, size_t Size)
     {
         auto NewBlockIt = m_FreeBlocksByOffset.emplace(Offset, Size);
         auto OrderIt = m_FreeBlocksBySize.emplace(Size, NewBlockIt.first);
@@ -339,15 +303,15 @@ protected:
         NewBlockIt.first->second.OrderBySizeIt = OrderIt;
     }
     
-    void *_Nullable Malloc(int64_t Size)
+    void *_Nullable Malloc(size_t Size)
     {
         m_Lock.lock();
-        m_Internal = false;
+        m_Internal = true;
         
-        Size += sizeof(int64_t) * 4;
+        Size += sizeof(uint64_t) * 3;
         
         if (m_FreeSize < Size) {
-            m_Internal = true;
+            m_Internal = false;
             m_Lock.unlock();
             return nullptr;
         }
@@ -372,33 +336,33 @@ protected:
             AddNewBlock(NewOffset, NewSize);
         
          m_FreeSize -= Size;
-        *(int64_t*)(&m_Data[Offset]) = Offset;
-        *(int64_t*)(&m_Data[Offset + sizeof(int64_t)]) = Size - 3 * sizeof(int64_t);
-        *(int64_t*)(&m_Data[Offset + 2 * sizeof(int64_t)]) = TOKEN_ID;
+        *(size_t*)(&m_Data[Offset]) = Offset;
+        *(size_t*)(&m_Data[Offset + sizeof(uint64_t)]) = Size - 3 * sizeof(uint64_t);
+        *(uint64_t*)(&m_Data[Offset + 2 * sizeof(uint64_t)]) = TOKEN_ID;
 
-        m_Internal = true;
+        m_Internal = false;
         m_Lock.unlock();
         
-        return (void*)&m_Data[Offset + 3 * sizeof(int64_t)];
+        return (void*)&m_Data[Offset + 3 * sizeof(uint64_t)];
     }
     
     void Free(void *_Nullable ptr)
     {
         m_Lock.lock();
-        m_Internal = false;
+        m_Internal = true;
         
-        int64_t Token = *((int64_t*)ptr - 1);
+        uint64_t Token = *(uint64_t*)((int8_t*)ptr - sizeof(uint64_t));
         
         // something is out of alignment
         
         if (Token != TOKEN_ID) {
             DEBUG_PRINTF(stderr, "WARNING: Trying to internal_free non-native pointer, incorrect tokenID\n");
-            m_Internal = true;
+            m_Internal = false;
             m_Lock.unlock();
             return;
         }
-        int64_t Offset = (int64_t)((int8_t*)ptr - m_Data - 3 * sizeof(int64_t));
-        int64_t Size   = *(int64_t*)((int8_t*)ptr - 2 * sizeof(int64_t)) + 3 * sizeof(int64_t);
+        size_t Offset = (uint64_t)((int8_t*)ptr - m_Data - 3 * sizeof(uint64_t));
+        size_t Size   = *(uint64_t*)((int8_t*)ptr - 2 * sizeof(uint64_t)) + 3 * sizeof(uint64_t);
 
         // Find the first element whose offset is greater than the specified offset
         auto NextBlockIt = m_FreeBlocksByOffset.upper_bound(Offset);
@@ -408,7 +372,7 @@ protected:
         else
             PrevBlockIt = m_FreeBlocksByOffset.end();
         
-        int64_t NewSize, NewOffset;
+        size_t NewSize, NewOffset;
         if(PrevBlockIt != m_FreeBlocksByOffset.end() && Offset == PrevBlockIt->first + PrevBlockIt->second.Size)
         {
             NewSize = PrevBlockIt->second.Size + Size;
@@ -442,7 +406,7 @@ protected:
         AddNewBlock(NewOffset, NewSize);
         m_FreeSize += Size;
         
-        m_Internal = true;
+        m_Internal = false;
         m_Lock.unlock();
     }
     
@@ -451,11 +415,11 @@ protected:
 #else
     int8_t                  *m_Data;
 #endif
-    int64_t                 m_MaxSize, m_FreeSize;
+    size_t                  m_MaxSize, m_FreeSize;
     TFreeBlocksByOffsetMap  m_FreeBlocksByOffset;
     TFreeBlocksBySizeMap    m_FreeBlocksBySize;
     
-    std::map<int64_t, int>  m_BlockCount;
+    std::map<size_t, int>  m_BlockCount;
     AtomicLock              m_Lock;
     volatile bool           m_Internal;
 };
