@@ -1,7 +1,7 @@
-FreedomPool v1.31
+FreedomPool v1.32
 -----------------
 
-v1.31: Fixed more crashes and weirdness during malloc/free/new/delete overrides, smooth rolling now! If it crashes even once,
+v1.32: Fixed more crashes and weirdness during malloc/free/new/delete overrides, smooth rolling now! If it crashes even once,
        from adding freedom_pool overrides, plz notify me and I will look into it. It doesn't crash at all for me, but 1.3 did.
 
 You can now align to 64-byte if you need to outside of freedom_pool, like I do it:
