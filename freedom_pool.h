@@ -1,4 +1,4 @@
-//     freedom_pool.h v1.31 (C)2023-2024 Dmitry Bodlyrev
+//     freedom_pool.h v1.32 (C)2023-2024 Dmitry Bodlyrev
 //
 //      This is the most efficient block-pool memory management system you can find. I tried many before writing my own:
 //      rpmalloc, tlsf, etc.
@@ -13,6 +13,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <signal.h>
 
 #include <dlfcn.h>
 
@@ -36,7 +37,8 @@
 // allocate on the stack (otherwise comment out)
 #define FREEDOM_STACK_ALLOC
 
-static const size_t DEFAULT_GROW = 300 * 1048576; // 60 MB
+static const size_t DEFAULT_GROW   = 50 * 1048576; // 50 MB
+static const size_t GROW_INCREMENT = 50 * 1048576; // 50 MB increment growth
 
 #define MALLOC_V4SF_ALIGNMENT   64
 #define TOKEN_ID                (uint64_t)'FREE'
@@ -69,6 +71,11 @@ public:
     FreedomPool()
     {
         initialize_overrides();
+        
+        if (sizeof(size_t) != sizeof(uint64_t)) {
+            fprintf(stderr, "FreedomPool(): sizeof(size_t) != sizoef(uint64_t) Terminating!\n");
+            raise(SIGINT);
+        }
         m_FreeBlocksByOffset.empty();
         m_FreeBlocksBySize.empty();
         
@@ -130,13 +137,21 @@ public:
     void *_Nullable malloc(size_t nb_bytes)
     {
         if (!real_malloc) initialize_overrides();
+        
          if ( !m_MaxSize || !m_Internal )
             return real_malloc(nb_bytes);
 
         if (GetFreeSize() < nb_bytes + 3 * sizeof(size_t)) {
-            DEBUG_PRINTF(stderr, "FreedomPool::malloc(): No space left trying to allocate %lld MB used %lld of %lld MB\n", nb_bytes/MBYTE, GetUsedSize()/MBYTE, GetMaxSize()/MBYTE);
+#ifdef FREEDOM_STACK_ALLOC
+            DEBUG_PRINTF(stderr, "FreedomPool::malloc() Ran out of space allocating %lld MB used %lld of %lld MB. Static model, returning NULL\n", nb_bytes/MBYTE, GetUsedSize()/MBYTE, GetMaxSize()/MBYTE, (GetUsedSize() + nb_bytes + 3 * sizeof(size_t) + GROW_INCREMENT) / MBYTE);
             return NULL;
-            //ExtendPool( GetMaxSize() - grow );
+#else
+            DEBUG_PRINTF(stderr, "FreedomPool::malloc() Ran out of space allocating %lld MB used %lld of %lld MB, expanding to %lld MB\n", nb_bytes/MBYTE, GetUsedSize()/MBYTE, GetMaxSize()/MBYTE, (GetUsedSize() + nb_bytes + 3 * sizeof(size_t) + GROW_INCREMENT) / MBYTE);
+            dispatch_async( dispatch_get_main_queue(), ^{
+                // grow pool by GROW_INCREMENT MB + requested size
+                ExtendPool( GetUsedSize() + nb_bytes + 3 * sizeof(size_t) + GROW_INCREMENT * MBYTE);
+            });
+#endif
         }
         return Malloc(nb_bytes);
     }
@@ -144,27 +159,34 @@ public:
     void *_Nullable calloc(size_t count, size_t size)
     {
         if (!real_calloc) initialize_overrides();
+        
         if ( !m_MaxSize || !m_Internal )
             return real_calloc(count, size);
+        
         return Malloc(count * size);
     }
     
     void free(void *_Nullable p)
     {
         if (!real_free) initialize_overrides();
-        if ( !m_MaxSize || !m_Internal)
+        if ( !m_MaxSize || !m_Internal) {
             real_free(p);
-        if (p && *(uint64_t*)((void**)p - 1) == TOKEN_ID)
+            return;
+        }
+        LOG("free(): m_Internal: %d m_MaxSize: %lld", m_Internal, m_MaxSize/MBYTE);
+        if (p && *(uint64_t*)((int8_t*)p - sizeof(uint64_t*)) == TOKEN_ID)
             Free(p);
+        else if (p) real_free(p);
     }
     
     size_t malloc_size(const void *_Nullable p)
     {
         if (!real_malloc_size) initialize_overrides();
+        
         if ( !m_MaxSize || !m_Internal )
             return real_malloc_size(p);
         
-        if ( *(uint64_t*)((void **) p - 1) == TOKEN_ID)
+        if (p && *(uint64_t*)((int8_t*)p - sizeof(uint64_t*)) == TOKEN_ID)
             return *((size_t *) p - 2);
         else
             return real_malloc_size(p);
@@ -176,10 +198,11 @@ public:
         size_t old_size = 0;
         
         if (!real_realloc) initialize_overrides();
+        
         if ( !m_MaxSize || !m_Internal )
             return real_realloc(p, new_size);
         
-        if (p && (*(uint64_t*)((void**)p - 1) == TOKEN_ID))
+        if (p && (*(uint64_t*)((int8_t*)p - sizeof(uint64_t*)) == TOKEN_ID))
         {
             old_size = *(size_t*)((void**)p - 2);
             if (old_size <= 0)
@@ -196,8 +219,10 @@ public:
     size_t malloc_usable_size(const void *_Nullable p)
     {
         if (!real_malloc_usable_size) initialize_overrides();
+        
         if ( !m_MaxSize || !m_Internal )
             return real_malloc_usable_size(p);
+        
         return internal_malloc_usable_size(p);
     }
     
@@ -335,7 +360,7 @@ protected:
         if (NewSize > 0)
             AddNewBlock(NewOffset, NewSize);
         
-         m_FreeSize -= Size;
+        m_FreeSize -= Size;
         *(size_t*)(&m_Data[Offset]) = Offset;
         *(size_t*)(&m_Data[Offset + sizeof(uint64_t)]) = Size - 3 * sizeof(uint64_t);
         *(uint64_t*)(&m_Data[Offset + 2 * sizeof(uint64_t)]) = TOKEN_ID;
@@ -351,7 +376,7 @@ protected:
         m_Lock.lock();
         m_Internal = true;
         
-        uint64_t Token = *(uint64_t*)((int8_t*)ptr - sizeof(uint64_t));
+        uint64_t Token = *((uint64_t*)ptr - 1);
         
         // something is out of alignment
         
@@ -361,7 +386,7 @@ protected:
             m_Lock.unlock();
             return;
         }
-        size_t Offset = (uint64_t)((int8_t*)ptr - m_Data - 3 * sizeof(uint64_t));
+        size_t Offset = (size_t)((uint64_t*)ptr - 3 * sizeof(uint64_t));
         size_t Size   = *(uint64_t*)((int8_t*)ptr - 2 * sizeof(uint64_t)) + 3 * sizeof(uint64_t);
 
         // Find the first element whose offset is greater than the specified offset
@@ -440,4 +465,5 @@ void operator delete[](void *_Nullable p) throw();
 void reset_freedom_counters();
 
 extern FreedomPool<DEFAULT_GROW> bigpool;
+
 
