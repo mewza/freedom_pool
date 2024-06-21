@@ -1,4 +1,4 @@
-//     freedom_pool.cpp v1.31 (C)2023-2024 Dmitry Bodlyrev
+//     freedom_pool.cpp v1.32 (C)2023-2024 Dmitry Bodlyrev
 //
 //     This is the most efficient block-pool memory management system you can find. I tried many before writing my own:
 //     rpmalloc, tlsf, many tlsf clones
@@ -45,8 +45,6 @@ void reset_freedom_counters() {
 
 void *_Nullable malloc(size_t nb_bytes)
 {
-    if (!real_malloc)
-        FreedomPool<DEFAULT_GROW>::initialize_overrides();
 #ifdef FREEDOM_DEBUG
     // DEBUG_PRINTF(stderr, "malloc( %ld )\n", nb_bytes);
     total_alloc += nb_bytes;
@@ -61,9 +59,6 @@ void *_Nullable malloc(size_t nb_bytes)
 void free(void *_Nullable p)
 {
     size_t space = 0;
-    
-    if (!real_free)
-        FreedomPool<DEFAULT_GROW>::initialize_overrides();
     
 #ifdef FREEDOM_DEBUG
     if (p) { space = bigpool.malloc_size(p); }
@@ -91,9 +86,6 @@ void free(void *_Nullable p)
 
 size_t malloc_size(const void *_Nullable ptr)
 {
-    if (!real_malloc_size)
-        FreedomPool<DEFAULT_GROW>::initialize_overrides();
-    
     //  DEBUG_PRINTF(stderr, "malloc_size( %ld )\n", (long)ptr);
     
     return bigpool.malloc_size(ptr);
@@ -101,8 +93,6 @@ size_t malloc_size(const void *_Nullable ptr)
 
 void *_Nullable realloc(void *_Nullable p, size_t new_size)
 {
-    if (!real_realloc)
-        FreedomPool<DEFAULT_GROW>::initialize_overrides();
 #ifdef FREEDOM_DEBUG
     // DEBUG_PRINTF(stderr, "realloc( %ld, %ld )\n", (long)p, new_size);
     size_t space = 0;
@@ -129,8 +119,6 @@ void *_Nullable realloc(void *_Nullable p, size_t new_size)
 
 void *_Nullable calloc(size_t count, size_t size)
 {
-    if (!real_calloc)
-        FreedomPool<DEFAULT_GROW>::initialize_overrides();
 #ifdef FREEDOM_DEBUG
     //  DEBUG_PRINTF(stderr, "calloc( %ld, %ld )\n", (long)count, size);
     size_t tot = size * count;
@@ -154,8 +142,6 @@ void *_Nullable calloc(size_t count, size_t size)
 
 void * operator new(std::size_t n)
 {
-    if (!real_malloc)
-        FreedomPool<DEFAULT_GROW>::initialize_overrides();
 #ifdef FREEDOM_DEBUG
     total_alloc += n;
 #ifdef BREAK_ON_THRESH
@@ -172,8 +158,6 @@ void * operator new(std::size_t n)
 
 void operator delete(void *_Nullable p) throw()
 {
-    if (!real_free)
-        FreedomPool<DEFAULT_GROW>::initialize_overrides();
 #ifdef FREEDOM_DEBUG
     int64_t space = 0;
     if (p) { space = bigpool.malloc_size(p); }
@@ -187,9 +171,6 @@ void operator delete(void *_Nullable p) throw()
 
 void *operator new[](std::size_t n)
 {
-    if (!real_malloc)
-        FreedomPool<DEFAULT_GROW>::initialize_overrides();
-    
 #ifdef FREEDOM_DEBUG
     total_alloc += n;
     total_max_alloc = std::max(total_max_alloc, total_alloc);
@@ -206,8 +187,6 @@ void *operator new[](std::size_t n)
 
 void operator delete[](void *p) throw()
 {
-    if (!real_free)
-        FreedomPool<DEFAULT_GROW>::initialize_overrides();
 #ifdef FREEDOM_DEBUG
     int64_t space = 0;
     if (p) { space = bigpool.malloc_size(p); }
@@ -222,6 +201,5 @@ void operator delete[](void *p) throw()
 #endif
 
 #endif
-
 
 
