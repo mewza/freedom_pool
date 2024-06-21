@@ -1,16 +1,16 @@
-//     freedom_pool.cpp v1.32 (C)2023-2024 Dmitry Bodlyrev
+//  freedom_pool.cpp v1.32 (C)2023-2024 Dmitry Bodlyrev
 //
-//     This is the most efficient block-pool memory management system you can find. I tried many before writing my own:
-//     rpmalloc, tlsf, many tlsf clones
+//  This is the most efficient block-pool memory management system you can find. 
+//   I tried many before writing my own: rpmalloc, tlsf, many tlsf clones
 //
-//     C and C++ wrappers for malloc/free/new/delete etc
-//     NEW: v1.31 has been thouroughly tested AGAIN! and it appears to be working well, even with overrides of new/delete/malloc/free
+//  C and C++ wrappers for malloc/free/new/delete etc
+//  NEW: v1.31 has been thouroughly tested AGAIN! and it appears to be working well, even with overrides of new/delete/malloc/free
 //
-//     This is the most efficient block-pool memory management system you can find. I tried many before writing my own:
-//     rpmalloc, tlsf, many tlsf clones.
+//  This is the most efficient block-pool memory management system you can find. I tried many before writing my own:
+//  rpmalloc, tlsf, many tlsf clones.
 //
-//     I tested it live in a multimedia project I am working on, it is full featured with streaming and SSL and I do not
-//     experience any crashes.  If it crashes please notify me and I will look into it. Thanks! 
+//  I tested it live in a multimedia project I am working on, it is full featured with streaming and SSL and I do not
+//  experience any crashes.  If it crashes please notify me and I will look into it. Thanks! 
 
 #include <signal.h>
 #include <malloc/malloc.h>
