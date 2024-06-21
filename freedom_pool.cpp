@@ -26,7 +26,7 @@ real_malloc_usable_size_ptr _Nullable real_malloc_usable_size = NULL;
 static size_t total_alloc = 0L;
 static size_t total_max_alloc = 0L;
 
-#define FREEDOM_DEBUG
+//#define FREEDOM_DEBUG
 //#define BREAK_ON_THRESH
 
 static const size_t MBYTE = 1048576;
@@ -66,7 +66,7 @@ void free(void *_Nullable p)
         total_alloc -= space;
     }
     if (space >= THRESH_DEBUG_PRINT)
-        DEBUG_PRINTF(stderr, "free( %3lld MB ) : spc %3lld\n", (int64_t)(space/MBYTE), (int64_t)(total_alloc/MBYTE));
+        DEBUG_PRINTF(stderr, "  free( %3lld MB ) : spc %3lld\n", (int64_t)(space/MBYTE), (int64_t)(total_alloc/MBYTE));
 #endif
     bigpool.free(p);
     
@@ -111,7 +111,7 @@ void *_Nullable realloc(void *_Nullable p, size_t new_size)
 #endif
     total_max_alloc = std::max(total_max_alloc, total_alloc);
     if (new_size >= THRESH_DEBUG_PRINT)
-        DEBUG_PRINTF(stderr, "new( %3lld MB ) : spc %3lld MB\n", (int64_t)(new_size/MBYTE), (int64_t)(total_max_alloc/MBYTE));
+        DEBUG_PRINTF(stderr, "   new( %3lld MB ) : spc %3lld MB\n", (int64_t)(new_size/MBYTE), (int64_t)(total_max_alloc/MBYTE));
     return ret;
 #endif
     return bigpool.realloc(p, new_size);
@@ -201,5 +201,6 @@ void operator delete[](void *p) throw()
 #endif
 
 #endif
+
 
 
