@@ -1,7 +1,7 @@
 // atomic_lock.h
 //
 // pthreads based C++ mutex/signal wrapper class
-// (C) 2023 Dmitry Bodlyrev
+// (C) 2023 DEMOS
 
 #ifndef H_ATOMICLOCK
 #define H_ATOMICLOCK
