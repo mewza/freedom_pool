@@ -1,8 +1,8 @@
-FreedomPool v1.3
-----------------
+FreedomPool v1.31
+-----------------
 
-v1.3: Fixed serious and fundamental bugs, I don't think it was even working before, now it is working properly.
-      Added static allocation on top of dynamic heap model. Both should work.
+v1.31: Fixed more crashes and weirdness during malloc/free/new/delete overrides, smooth rolling now! If it crashes even once,
+       from adding freedom_pool overrides, plz notify me and I will look into it. It doesn't crash at all for me, but 1.3 did.
 
 I updated today to v1.21, 64-byte alignment isn't hooked up yet but the provisions are there, 
 I really need to just fuse it inside of block management itself, instead of creating another intermediate layer.
