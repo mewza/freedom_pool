@@ -1,4 +1,4 @@
-//  freedom_pool.h v1.35 (C)2023-2024 DEMOS
+//  freedom_pool.h v1.36 (C)2023-2024 DEMOS
 //
 //  This is the most efficient block-pool memory management system you can find. 
 //  I tried many before writing my own: rpmalloc, tlsf, etc.
@@ -33,17 +33,18 @@
 //#define DISABLE_MALLOC_FREE_OVERRIDE
 
 // allocate on the stack (otherwise comment out)
-//#define FREEDOM_STACK_ALLOC
+#define FREEDOM_STACK_ALLOC
 
-//#define FREEDOM_DEBUG
+#define FREEDOM_DEBUG
 //#define BREAK_ON_THRESH
 
-static const size_t MBYTE = 1048576L;
+static const size_t MBYTE = 1048576;
+static const size_t KBYTE = 1024;
 
 static const size_t THRESH_DEBUG_BREAK = 18 * MBYTE;
-static const size_t THRESH_DEBUG_PRINT = 0 * MBYTE;
+static const size_t THRESH_DEBUG_PRINT = 100 * KBYTE;
 
-static const size_t DEFAULT_GROW   = 250 * MBYTE; // 50 MB
+static const size_t DEFAULT_GROW   = 200 * MBYTE; // 50 MB
 static const size_t GROW_INCREMENT = 50 * MBYTE; // 50 MB increment growth
 
 #define MALLOC_V4SF_ALIGNMENT   64
@@ -454,6 +455,4 @@ void operator delete[](void *_Nullable p) throw();
 #endif // DISABLE_NEWDELETE_OVERRIDE
 
 extern FreedomPool<DEFAULT_GROW> bigpool;
-
-GROW> bigpool;
 
