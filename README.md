@@ -1,6 +1,7 @@
-FreedomPool v1.35
+FreedomPool v1.36
 -----------------
 
+v1.36: Some bug fixes and I added MB / kb denomination for debugging info
 v1.35: It is finally super stable! Tested on both static and dynamic allocation models, on the device and 
        OS X. Works and doesn't crash at all.
 
