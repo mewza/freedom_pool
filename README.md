@@ -1,8 +1,8 @@
-FreedomPool v1.32
+FreedomPool v1.35
 -----------------
 
-v1.32: Fixed more crashes and weirdness during malloc/free/new/delete overrides, smooth rolling now! If it crashes even once,
-       from adding freedom_pool overrides, plz notify me and I will look into it. It doesn't crash at all for me, but 1.3 did.
+v1.35: It is finally super stable! Tested on both static and dynamic allocation models, on the device and 
+       OS X. Works and doesn't crash at all.
 
 You can now align to 64-byte if you need to outside of freedom_pool, like I do it:
 
