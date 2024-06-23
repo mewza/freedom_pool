@@ -1,4 +1,4 @@
-//  freedom_pool.cpp v1.35 (C)2023-2024 DEMOS
+//  freedom_pool.cpp v1.36 (C)2023-2024 DEMOS
 //
 //  This is the most efficient block-pool memory management system you can find. 
 //   I tried many before writing my own: rpmalloc, tlsf, many tlsf clones
@@ -30,7 +30,7 @@ void reset_freedom_counters() {
 
 FreedomPool<DEFAULT_GROW> bigpool;
 
-#if !defined(DISABLE_MALLOC_FREE_OVERRIDE)
+#ifndef DISABLE_MALLOC_FREE_OVERRIDE
 
 void *_Nullable malloc(size_t nb_bytes)
 {
@@ -38,8 +38,9 @@ void *_Nullable malloc(size_t nb_bytes)
     total_alloc += nb_bytes;
     total_max_alloc = F_MAX(total_max_alloc, (size_t)nb_bytes);
     
+    size_t spc = nb_bytes/MBYTE;
     if (nb_bytes >= THRESH_DEBUG_PRINT)
-        DEBUG_PRINTF(stderr, "malloc( %3ld %s ) : tot %3ld MB\n", ((nb_bytes/MBYTE) > 0) ? (size_t)(nb_bytes/MBYTE) : nb_bytes, ((nb_bytes/MBYTE) > 0) ? "MB" : "kb", (size_t)(total_alloc/MBYTE));
+        DEBUG_PRINTF(stderr, "malloc( %3ld %s ) : tot %3ld MB\n", (spc > 0) ? spc : nb_bytes/KBYTE, (spc > 0) ? "MB" : "kb", (size_t)(total_alloc/MBYTE));
 #endif
     return bigpool.malloc(nb_bytes);
 }
@@ -52,8 +53,9 @@ void free(void *_Nullable ptr)
     if (space > 0) {
         total_alloc -= space;
     }
+    size_t spc = space/MBYTE;
     if (space >= THRESH_DEBUG_PRINT)
-        DEBUG_PRINTF(stderr, "  free( %3ld MB ) : spc %3ld\n", (size_t)(space/MBYTE), (size_t)(total_alloc/MBYTE));
+        DEBUG_PRINTF(stderr, "  free( %3ld %s ) : spc %3ld\n", (size_t)((spc > 0) ? spc : space/KBYTE), (spc > 0) ? "MB" : "kb", (size_t)(total_alloc/MBYTE));
 #endif
     bigpool.free(ptr);
 }
@@ -90,9 +92,10 @@ void *_Nullable realloc(void *_Nullable ptr, size_t nb_bytes)
     if (nb_bytes >= THRESH_DEBUG_BREAK)
         DEBUGGER
 #endif
+    size_t spc = space/MBYTE;
     total_max_alloc = std::max(total_max_alloc, total_alloc);
     if (nb_bytes >= THRESH_DEBUG_PRINT)
-        DEBUG_PRINTF(stderr, "realloc( %3ld %s ) : tot %3ld MB\n", ((nb_bytes/MBYTE) > 0) ? (size_t)(nb_bytes/MBYTE) : nb_bytes, ((nb_bytes/MBYTE) > 0) ? "MB" : "kb", (size_t)(total_alloc/MBYTE));
+        DEBUG_PRINTF(stderr, "realloc( %3ld %s ) : tot %3ld MB\n", (spc > 0) ? spc : space/KBYTE, (spc > 0) ? "MB" : "kb", (size_t)(total_alloc/MBYTE));
     return ret;
 #endif
     return bigpool.realloc(ptr, nb_bytes);
@@ -109,15 +112,15 @@ void *_Nullable calloc(size_t count, size_t size)
     if (nb_bytes >= THRESH_DEBUG_BREAK)
         DEBUGGER
 #endif
+    size_t spc = nb_bytes/MBYTE;
     if (nb_bytes >= THRESH_DEBUG_PRINT)
-        DEBUG_PRINTF(stderr, "calloc( %3ld %s ) : tot %3ld MB\n", ((nb_bytes/MBYTE) > 0) ? (size_t)(nb_bytes/MBYTE) : nb_bytes, ((nb_bytes/MBYTE) > 0) ? "MB" : "kb", (size_t)(total_alloc/MBYTE));
+        DEBUG_PRINTF(stderr, "calloc( %3ld %s ) : tot %3ld MB\n", (spc > 0) ? spc : nb_bytes/KBYTE, (spc > 0) ? "MB" : "kb", (size_t)(total_alloc/MBYTE));
 #endif
     return bigpool.calloc(count, size);
 }
-
 #endif // DISABLE_MALLOC_FREE_OVERRIDE
 
-#if !defined(DISABLE_NEWDELETE_OVERRIDE)
+#ifndef DISABLE_NEWDELETE_OVERRIDE
 
 #ifdef __cplusplus
 
@@ -184,7 +187,5 @@ void operator delete[](void *ptr) throw()
 #endif
 
 #endif
-
-
 
 
