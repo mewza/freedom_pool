@@ -1,7 +1,7 @@
-FreedomPool v1.36
+FreedomPool v1.37
 -----------------
 
-v1.36: Some bug fixes and I added MB / kb denomination for debugging info. Still very solid, haven't had a
+v1.36(37): Some bug fixes and I added MB / kb denomination for debugging info. Still very solid, haven't had a
        single unusual crash or weirdness happen in my 1M lines of C++ code app yet
        
 v1.35: It is finally super stable! Tested on both static and dynamic allocation models, on the device and 
