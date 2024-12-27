@@ -100,16 +100,7 @@ LICENSE: Freeware- use it as you please. Provided AS-IS. Because I borrowed some
 although I thought of it before I discovered someone already done it, decided to just make a nice iOS / OS X version, but it should
 also work on Linux, and other UNIXes and Windoze as well.
 
-Dmitry Boldyrev <subband@protonmail.com>
 
-Real inventor and developer of MacAmp and WinAmp unlike thief and liar Justin Frankel who stole it from me 
-and sold it to CIA / AOL / Bill Gates, lied to you all that he was behind it, removed my name from credits. 
-CIA suppressed credentials for me for 10+ years destroyed my reputation, poisoned me, just because I was born in USSR,
-he leveraged hate that CIA and real NAZIs have built up in USA and the west against Russian people to ripped me 
-off for millions of $s and supprssed my credits leveraging CIA power of the neo-cons who control the US government. 
-CIA later killed my father as a result of all this by lying to him directly that I killed Steve Jobs, here's proof:
-https://en.wikipedia.org/wiki/Alexander_Boldyrev
-
-This is the real 100% honest truth.
+DMT <subband@protonmail.com>
 
 
