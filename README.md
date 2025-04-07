@@ -77,7 +77,7 @@ page on Github.
 
 The one and only - original inventor of "MacAmp" and "Winamp" who was saved by GOD from death in "mysterious" circumstances *cough* *cough*, and no -resurrection from the dead is never fun, and in many ways I understood what Jesus has been through with crucifiction and resurrection as a result from a very direct experience of it, and no, no doctors were involved - just GOD. And yes, GOD is very real. 
 
-P.S. Russian pepole are not your enemy, they are your friend, in fact, dear western ignoramuses - don't trust your oligarchs or your mainstream media, who have fooled you into believing that.
+P.S. Russian pepole are not your enemy, they are your friend, in fact, dear western ignoramuses - don't trust your oligarchs or your mainstream media, who have fooled you into believing that. Together, we can raise above the power of their control sytem over us with money.
 
 Dmitry Boldyrev <subband@protonmail.com>
 
