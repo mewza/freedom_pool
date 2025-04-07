@@ -4,15 +4,15 @@ FreedomPool v1.4
 v1.4: Optimized (removed multimap bottlebneck), proper implementation of configurable memory alignment,
       default: 64, stable as a rock I actively use it in my huge multimedia project, with no troubles.
 
-This is probably the most efficient block-pool memory management system you can find. I tried many before 
-coming up with my own, which turned out to be already 6 months in existence, well brilliant minds think alike!
+This is probably the most efficient static or dynamic allocated block-pool memory management system you 
+can find. I've gone over at least 5 or 10, tried many before coming up with my own in the end, becuase of
+bugs and failures of other people's. 
 
-I don't recommend rpmalloc, tlsf, many tlsf clones. I have tried , and had too many problems and crashes.
+I am using freedom_pool in my multimedia rich project (which has hundreds of .cpp and .h files in the project) 
+I am working on which utilizes heave use of OpenGL, Audio DSP on iOS and I have MacCatalyst version which works 
+solid with no strange crashes.
 
-I am in fact using freedom_pool in my multimedia rich project that I am working on which utilizes heave use of 
-OpenGL, audio, DSP, it works great no strange crashes.
-
-This code is partially based off this block allocator concept, despite independently coming up with the idea 
+This code is in partially based off block allocator concept, despite independently coming up with the idea 
 6 months later, this author gets the credits for being first: 
 
        https://www.codeproject.com/Articles/1180070/Simple-Variable-Size-Memory-Block-Allocator
@@ -29,8 +29,8 @@ you can override C++/C malloc/free/new/delete/etc separately or together with th
 
        (commented out means they are disabled)
 
-If you have some modifications and improvements that appear to be stable send over I will check them out, but otherwise
-enjoy, this is a great static allocation alternative to stdlib's.
+If you have some ideas for improvements or have made modification that are stable send over to me for evaluation, 
+and I will integrate them if it benefits this project. 
 
 This is how you would use it in your app, in main.mm/.cpp you make a static allocation of class and iniitializae it
 to the max size of your app's memory usage, or if you can just uncomment DISABLE_NEWDELETE_OVERRIDE and DISABLE_MALLOC_FREE_OVERRIDE
@@ -58,13 +58,15 @@ Manual use with those #defines disabled would look like this:
               return 0;
        }
 
-This type of allocation is cross-thread safe, what does it mean? it means you can bigpool.malloc() in one thread,
-and bigpool.free() in another without a problem. I also tried to make FreedomPool self-expanding based on memory usage, 
-but then decided to temporary remove it because of realloc that can happen in the wrong time, can cause problems, if you want
-to enable ExtendPool mechanism, you can do so by adding this: dispatch_async( dispatch_get_main_queue(), ^{ ExtendPool( EXPANSION ); };  inside of bigpool.malloc(). I still recommend the approach of measurig your app's memory usage (which is easy to do with FREEDOM_DEBUG and pre-grow it statically or dynamically, whichever.
+This type of allocation is cross-thread safe, easy to use, and transparent, what does it mean? it means you can bigpool.malloc() 
+in one thread, and safely bigpool.free() in another. I also tried to make FreedomPool dynamically self-expanding based on memory usage, 
+but then decided to backtrack because of realloc that can happen in the wrong time, can cause problems. if you want
+to enable ExtendPool mechanism, you can do so by adding this: dispatch_async( dispatch_get_main_queue(), ^{ ExtendPool( EXPANSION ); }; 
+inside of bigpool.malloc(). I still recommend the approach of measurig your app's memory usage (which is easy to do with FREEDOM_DEBUG 
+and pre-grow it statically or dynamically, whichever.
 
-LICENSE: Freeware- use it as you please. Provided AS-IS. Would appreciate a "Thank you" in the credits of the application, and reference to the GITHUB. Because I borrowed some code from the above mentioned solution, although I came up with it independently, I discovered someone already done it, 
-decided to just make a nice wrapper for iOS and OS X, and it should also work on Linux, and other Unix and non-Unix based operating systems.
+LICENSE: LOVE FREEWARE- use it as you please. Provided AS-IS. Would appreciate a "Thank you" in the credits of the application, and a reference to this
+page on Github. 
 
 Dmitry Boldyrev <subband@protonmail.com>
 
