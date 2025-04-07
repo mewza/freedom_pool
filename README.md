@@ -14,8 +14,8 @@ some sort of better future where things simply work for the benefit of all and e
 out of good intentions, never to harm or cause evil to other people.
 
 I am using freedom_pool in my multimedia rich project (which has hundreds of .cpp and .h files in the project) 
-I am working on which utilizes heave use of OpenGL, Audio DSP on iOS and I have MacCatalyst version which works 
-solid with no strange crashes.
+I am working on which makes use of OpenGL, does intense audio DSP on iOS and OS X - I have MacCatalyst build 
+which works solid with no strange crashes with FreedomPool.
 
 This code is in partially based off block allocator concept, despite independently coming up with the idea 
 6 months later, this author gets the credits for being first: 
