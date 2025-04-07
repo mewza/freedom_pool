@@ -7,11 +7,11 @@ v1.4: Optimized (removed multimap bottlebneck), proper implementation of configu
 This is probably the most efficient static or dynamic allocated block-pool memory management system you 
 can find. I've gone over at least 5 or 10, tried many before coming up with my own in the end, becuase of
 bugs and failures of other people's implementations of block-pool solutions, which gave my app random weird
-crashes, you should expect completely STABLE and BUG FREE performance from FreedomPool. I don't have time
-to waste on bullshit. If I do things I usually do things to the best of my ability, and I don't do things
+crashes. You should expect STABLE and BUG FREE performance from FreedomPool, and nothing short of! I don't 
+have time to waste on bullshit. If I do things I do things to the best of my ability, and I don't do things
 simply because someone just pays me to do something. My inspiration is moving humanity forward towards
-some sort of better future where things simply work for the benefit of humanity and everyone does things
-for good intentions, never to harm or cause evil to other people.
+some sort of better future where things simply work for the benefit of all and everyone does things
+out of good intentions, never to harm or cause evil to other people.
 
 I am using freedom_pool in my multimedia rich project (which has hundreds of .cpp and .h files in the project) 
 I am working on which utilizes heave use of OpenGL, Audio DSP on iOS and I have MacCatalyst version which works 
