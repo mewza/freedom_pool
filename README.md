@@ -17,8 +17,8 @@ I am using freedom_pool in my multimedia rich project (which has hundreds of .cp
 I am working on which makes use of OpenGL, does intense audio DSP on iOS and OS X - I have MacCatalyst build 
 which works solid with no strange crashes with FreedomPool.
 
-This code is in partially based off block allocator concept, despite independently coming up with the idea 
-6 months later, this author gets the credits for being first: 
+This code is conceptually based off the block allocator concept below, and despite independently coming up 
+with the idea  6 months later, this author gets the credits for being first: 
 
        https://www.codeproject.com/Articles/1180070/Simple-Variable-Size-Memory-Block-Allocator
 
