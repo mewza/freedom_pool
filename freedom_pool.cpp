@@ -9,30 +9,12 @@
 
 #include "freedom_pool.h"
 
-#if defined(H_MSS_MEM) && defined(DISABLE_MALLOC_FREE_OVERRIDE)
-
-#ifdef DISABLE_NEWDELETE_OVERRIDE
-#undef DISABLE_NEWDELETE_OVERRIDE
-#define DISABLE_NEWDELETE_OVERRIDE 1
-#endif
-
-#define BIGPOOL_MALLOC mss_aligned_malloc
-#define BIGPOOL_USABLE_SIZE mss_aligned_malloc_usable_size
-#define BIGPOOL_FREE mss_aligned_free
-#define BIGPOOL_SIZE mss_aligned_malloc_size
-#define BIGPOOL_CALLOC mss_aligned_calloc
-#define BIGPOOL_REALLOC mss_aligned_realloc
-
-#else // H_MSS_MEM
-
 #define BIGPOOL_MALLOC bigpool.malloc
 #define BIGPOOL_USABLE_SIZE bigpool.malloc_usable_size
 #define BIGPOOL_FREE bigpool.free
 #define BIGPOOL_SIZE bigpool.malloc_size
 #define BIGPOOL_CALLOC bigpool.calloc
 #define BIGPOOL_REALLOC bigpool.realloc
-
-#endif // H_MSS_MEM && DISABLE_MALLOC_FREE_OVERRIDE
 
 #ifdef __cplusplus
 
