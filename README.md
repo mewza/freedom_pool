@@ -1,59 +1,8 @@
-FreedomPool v1.37
+FreedomPool v1.4
 -----------------
 
-v1.36(37): Some bug fixes and I added MB / kb denomination for debugging info. Still very solid, haven't had a
-       single unusual crash or weirdness happen in my 1M lines of C++ code app yet
-       
-v1.35: It is finally super stable! Tested on both static and dynamic allocation models, on the device and 
-       OS X. Works and doesn't crash at all.
-
-You can now align to 64-byte if you need to outside of freedom_pool, like I do it:
-
-       #define MALLOC_V4SF_ALIGNMENT 64
-
-       static inline void *aligned_malloc(size_t nb_bytes)
-       {
-           void *p, *p0 = bigpool.malloc(nb_bytes + MALLOC_V4SF_ALIGNMENT);
-           if (!p0) return (void *) 0;
-           p = (void *) (((size_t) p0 + MALLOC_V4SF_ALIGNMENT) & (~((size_t) (MALLOC_V4SF_ALIGNMENT-1))));
-           //*(uint32_t*)((void **) p - 1) = 'FREE';
-           *((void **) p - 1) = p0;
-           return p;
-       }
-       
-       static inline int64_t aligned_free(void *p) {
-           if (p) {
-               void *ptr = *((void **) p - 1);
-               int64_t sz = bigpool.malloc_size(ptr);
-               bigpool.free( ptr );
-             //  if ((sz/1048576L) == 0)
-             //      fprintf(stderr, "Valigned_free( %3lld kb)\n", (int64_t)(sz/1024));
-             //  else
-             //      fprintf(stderr, "Valigned_free( %3lld MB )\n", (int64_t)(sz/1048576L));
-               return sz;
-           } else return -1;
-       }
-       
-       static inline void *aligned_ptr(void *p)
-       {
-           return (p) ? *((void **) p - 1) : (void *) 0;
-       }
-
-and finally for logging:
-
-       #define DEBUG_PRINTF fprintf    // (or)
-       #define DEBUG_PRINTF            // skip logging 
-
-you can override C++/C malloc/free/new/delete/etc separately or together with those #define controls
-by uncommenting these:
-
-       // #define DISABLE_NEWDELETE_OVERRIDE
-       // #define DISABLE_MALLOC_FREE_OVERRIDE
-
-I've tested this in my huge project that has hundreds of files and functions, no crashes as of 1.31!
-streams audio, video, uses SSL internal calls, no problems! 
-
-If you have some modifications and improvements that appear to be stable send over I will check them out! 
+v1.4: Optimized (removed multimap bottlebneck), proper implementation of configurable memory alignment,
+      default: 64, stable as a rock I actively use it in my huge multimedia project, with no troubles.
 
 This is probably the most efficient block-pool memory management system you can find. I tried many before 
 coming up with my own, which turned out to be already 6 months in existence, well brilliant minds think alike!
@@ -68,17 +17,35 @@ This code is partially based off this block allocator concept, despite independe
 
        https://www.codeproject.com/Articles/1180070/Simple-Variable-Size-Memory-Block-Allocator
 
+To enable debugging and messaging define DEBUG_PRINTF in freedom_pool.h like shown here:
+
+       #define DEBUG_PRINTF fprintf    // (or)
+       #define DEBUG_PRINTF            // skip logging 
+
+you can override C++/C malloc/free/new/delete/etc separately or together with those #defines:
+
+       // #define DISABLE_NEWDELETE_OVERRIDE
+       // #define DISABLE_MALLOC_FREE_OVERRIDE
+
+       (commented out means they are disabled)
+
+If you have some modifications and improvements that appear to be stable send over I will check them out, but otherwise
+enjoy, this is a great static allocation alternative to stdlib's.
+
 This is how you would use it in your app, in main.mm/.cpp you make a static allocation of class and iniitializae it
-to the max size of your app's memory usage.
+to the max size of your app's memory usage, or if you can just uncomment DISABLE_NEWDELETE_OVERRIDE and DISABLE_MALLOC_FREE_OVERRIDE
+if they are commented out in freedom_pool.h (I think by default they are enabled, which means if you include freedom_pool.cpp into
+your project, and just recompile the project, all malloc/free/new/delete/new[]/delete[] will be automaticlaly routed through FreedomPool.
+Manual use with those #defines disabled would look like this:
 
        #include <stdio.h>
        #include <stdlib.h>
-       
-       FreedomPool bigpool;
+       #include "freedom_pool.h"
        
        int main(int argc, char *argv[])
        {
               char *s = (char*)bigpool.malloc(12);
+              
               // should print out 16
               printf("allocated space for s: %d\n", (int)bigpool.malloc_size(s)); 
               bigpool.free(s);
@@ -92,15 +59,13 @@ to the max size of your app's memory usage.
        }
 
 This type of allocation is cross-thread safe, what does it mean? it means you can bigpool.malloc() in one thread,
-and bigpool.free() in another without a problem. I also tried to make it self-expanding based on memory usage, but then
-decided to temporary remove it because of realloc that can happen in the wrong time, can cause problems, if you want
+and bigpool.free() in another without a problem. I also tried to make FreedomPool self-expanding based on memory usage, 
+but then decided to temporary remove it because of realloc that can happen in the wrong time, can cause problems, if you want
 to enable ExtendPool mechanism, you can do so by adding this: dispatch_async( dispatch_get_main_queue(), ^{ ExtendPool( EXPANSION ); };  inside of bigpool.malloc(). I still recommend the approach of measurig your app's memory usage (which is easy to do with FREEDOM_DEBUG and pre-grow it statically or dynamically, whichever.
 
-LICENSE: Freeware- use it as you please. Provided AS-IS. Because I borrowed some code from the above mentioned solution,
-although I thought of it before I discovered someone already done it, decided to just make a nice iOS / OS X version, but it should
-also work on Linux, and other UNIXes and Windoze as well.
+LICENSE: Freeware- use it as you please. Provided AS-IS. Would appreciate a "Thank you" in the credits of the application, and reference to the GITHUB. Because I borrowed some code from the above mentioned solution, although I came up with it independently, I discovered someone already done it, 
+decided to just make a nice wrapper for iOS and OS X, and it should also work on Linux, and other Unix and non-Unix based operating systems.
 
-
-DMT <subband@protonmail.com>
+Dmitry Boldyrev <subband@protonmail.com>
 
 
