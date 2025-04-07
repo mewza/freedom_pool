@@ -75,7 +75,7 @@ and pre-grow it statically or dynamically, whichever.
 LICENSE: LOVE FREEWARE- use it as you please. Provided AS-IS. Would appreciate a "Thank you" in the credits of the application, and a reference to this
 page on Github. 
 
-The one and only - original inventor of "MacAmp" and "Winamp" who was saved by GOD from death in "mysterious" circumstances *cough* *cough*, and no resurrection from the dead is never fun.
+The one and only - original inventor of "MacAmp" and "Winamp" who was saved by GOD from death in "mysterious" circumstances *cough* *cough*, and no resurrection from the dead is never fun, and in many ways I understood what Jesus has been through with crucifiction and resurrection as a result in a very direct way.
 
 Dmitry Boldyrev <subband@protonmail.com>
 
