@@ -9,23 +9,21 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
 #include <stdlib.h>
 #include <assert.h>
 #include <signal.h>
-
 #include <dlfcn.h>
-
-#ifdef __cplusplus
-#include <map>
-#include <iostream>
-#endif
-
 #include <dispatch/dispatch.h>
 #include <dispatch/queue.h>
-#include <assert.h>
 #include <malloc/malloc.h>
-#include <mss/ringbuffer.h>
-#include <mss/atomic.h>
+#include <assert.h>
+
+#include <map>
+#include <iostream>
+
+#include "atomic.h"
 
 // fprintf
 #define DEBUG_PRINTF 
@@ -71,8 +69,6 @@ extern real_malloc_size_ptr _Nullable real_malloc_size;
 extern real_malloc_usable_size_ptr _Nullable real_malloc_usable_size;
 
 void reset_freedom_counters(void);
-
-#ifdef __cplusplus
 
 extern "C" {
     size_t malloc_size(const void *_Nullable ptr);
@@ -538,12 +534,7 @@ private:
     volatile bool m_Internal;                   // Flag for internal operations
 };
 
-
-#endif // __cplusplus
-
 #if !defined(DISABLE_NEWDELETE_OVERRIDE)
-
-#ifdef __cplusplus
 
 void *_Nullable operator new(std::size_t n);
 void operator delete(void *_Nullable p) throw();
@@ -552,12 +543,10 @@ void operator delete[](void *_Nullable p) throw();
 
 extern FreedomPool<DEFAULT_GROW> bigpool;
 
-#else
-
 size_t malloc_size(const void *_Nullable ptr);
 size_t malloc_usable_size(void *_Nullable ptr);
 
-#endif // __cplusplus
-
 #endif // DISABLE_NEWDELETE_OVERRIDE
+
+#endif // __cplusplus
 
