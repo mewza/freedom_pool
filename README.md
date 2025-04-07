@@ -38,10 +38,12 @@ If you have some ideas for improvements or have made modification that are stabl
 and I will integrate them if it benefits this project. 
 
 This is how you would use it in your app, in main.mm/.cpp you make a static allocation of class and iniitializae it
-to the max size of your app's memory usage, or if you can just uncomment DISABLE_NEWDELETE_OVERRIDE and DISABLE_MALLOC_FREE_OVERRIDE
-if they are commented out in freedom_pool.h (I think by default they are enabled, which means if you include freedom_pool.cpp into
-your project, and just recompile the project, all malloc/free/new/delete/new[]/delete[] will be automaticlaly routed through FreedomPool.
-Manual use with those #defines disabled would look like this:
+to the max size of your app's memory usage, or if you have DISABLE_NEWDELETE_OVERRIDE and DISABLE_MALLOC_FREE_OVERRIDE
+commented out in freedom_pool.h (by default FreedomPool is enabled, i.e. defines are commented out), so if you include 
+freedom_pool.cpp into your project, and just recompile the project, all malloc/free/new/delete/new[]/delete[] will be 
+automaticlaly routed through FreedomPool, so no need to do anything beyond that. 
+
+Manual use of FreedomPool with DISABLE_NEWDELETE_OVERRIDE and DISABLE_MALLOC_FREE_OVERRIDE uncommented looks like this:
 
        #include <stdio.h>
        #include <stdlib.h>
