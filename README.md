@@ -1,4 +1,4 @@
-FreedomPool v1.4
+FreedomPool v1.5
 -----------------
 
 v1.5: Implemented IsValidPointer for safety, modernized volatile m_Internal with std::atomic
