@@ -1,17 +1,16 @@
-//  freedom_pool.h v1.4 (c)2023-2025 Dmitry Boldyrev
+//  freedom_pool.h v1.5 (c)2023-2025 Dmitry Boldyrev
 //
 //  This is the most efficient block-pool memory management system you can find.
 //  I tried many before writing my own: rpmalloc, tlsf, etc.
 //  This code is partially based off this block allocator concept:
 //  https://www.codeproject.com/Articles/1180070/Simple-Variable-Size-Memory-Block-Allocator
 //
-//  NEW (v1.4): Optimizatoins and configurable memory alignment. Got rid of multimap bottleneck.
+//  NEW (v1.5): Implemented IsValidPointer for safety, modernized volatile m_Internal with std::atomic
 
 #pragma once
 
 #ifdef __cplusplus
 
-#include <stdlib.h>
 #include <assert.h>
 #include <signal.h>
 #include <dlfcn.h>
@@ -19,14 +18,15 @@
 #include <dispatch/queue.h>
 #include <malloc/malloc.h>
 #include <assert.h>
+#include <mss/atomic.h>
+#include <mss/mem.h>
 
 #include <map>
 #include <iostream>
 
-#include "atomic.h"
 
 // fprintf
-#define DEBUG_PRINTF 
+#define DEBUG_PRINTF
 
 //#define DISABLE_MALLOC_FREE_OVERRIDE
 //#define DISABLE_NEWDELETE_OVERRIDE
@@ -43,12 +43,12 @@ static const size_t MBYTE               = KBYTE * KBYTE;
 static const size_t THRESH_DEBUG_BREAK  = 1000 * MBYTE;
 static const size_t THRESH_DEBUG_PRINT  = 20 * MBYTE;
 
-static const size_t DEFAULT_GROW        = 1000 * MBYTE;  // 1GB
-static const size_t GROW_INCREMENT      = 50 * MBYTE;   // 50 MB increment growth
+static const size_t DEFAULT_GROW        = 1000 * MBYTE;  // 1.5 GB
+static const size_t GROW_INCREMENT      = 50 * MBYTE;    // 50 MB increment growth
 
 static const uint64_t TOKEN_ID          = UINT64_C(0x422E465245452100); // 'BE.FREE!'
 
-#define MALLOC_V4SF_ALIGNMENT               64
+// moved to mem.h #define MALLOC_ALIGN               64
 
 #define DEBUGGER do {   \
     raise(SIGINT); \
@@ -77,7 +77,7 @@ extern "C" {
 
 // Memory alignment settings
 
-#define MEMORY_ALIGNMENT                64  // 64-byte alignment (cache line size)
+#define MEMORY_ALIGNMENT                128  // 128-byte alignment (cache line size)
 
 #define ALIGN_UP(size, alignment)       (((size) + ((alignment) - 1)) & ~((alignment) - 1))
 #define ALIGN_DOWN(size, alignment)     ((size) & ~((alignment) - 1))
@@ -100,8 +100,12 @@ template <size_t poolsize = DEFAULT_GROW>
 class FreedomPool
 {
 public:
-    FreedomPool(): m_Internal(true), m_MaxSize(0), m_FreeSize(0),
-    m_AllocCount(0), m_FreeCount(0)
+    FreedomPool():
+        m_Internal(true),
+        m_MaxSize(0),
+        m_FreeSize(0),
+        m_AllocCount(0),
+        m_FreeCount(0)
     {
         initialize_overrides();
         m_Lock.init();
@@ -155,13 +159,26 @@ public:
             real_malloc_usable_size = (real_malloc_usable_size_ptr)dlsym(RTLD_NEXT, "malloc_usable_size");
         }
     }
-    
+    __inline bool IsValidPointer(const void *_Nullable p) const
+    {
+        if (!p) return false;
+        
+        // Get the supposed header address
+        uintptr_t header_addr = (uintptr_t)p - sizeof(BlockHeader);
+        uintptr_t data_start = (uintptr_t)m_Data;
+        uintptr_t data_end = data_start + m_MaxSize;
+        
+        // Check if both pointer and header are within valid range
+        return (header_addr >= data_start &&
+                (uintptr_t)p < data_end &&
+                IS_ALIGNED(header_addr - data_start, MEMORY_ALIGNMENT));
+    }
     // Aligned memory allocation
     __inline void *_Nullable malloc(size_t nb_bytes)
     {
         if (!real_malloc) initialize_overrides();
         
-        if (m_Internal || !m_MaxSize)
+        if (m_Internal.load(std::memory_order_relaxed) || !m_MaxSize)
             return real_malloc(nb_bytes);
         
         // Calculate aligned size with space for header
@@ -172,7 +189,16 @@ public:
         total_size = ALIGN_UP(total_size, MEMORY_ALIGNMENT);
         
         if (GetFreeSize() < total_size) {
-            // ... [same as before] ...
+#ifdef FREEDOM_STACK_ALLOC
+            DEBUG_PRINTF(stderr, "FreedomPool::malloc() Ran out of space allocating %lld MB used %lld of %lld MB. Static model, returning NULL\n", nb_bytes/MBYTE, GetUsedSize()/MBYTE, GetMaxSize()/MBYTE, (GetUsedSize() + nb_bytes + 3 * sizeof(void*) + GROW_INCREMENT) / MBYTE);
+            return NULL;
+#else
+            DEBUG_PRINTF(stderr, "FreedomPool::malloc() Ran out of space allocating %lld MB used %lld of %lld MB, expanding to %lld MB\n", nb_bytes/MBYTE, GetUsedSize()/MBYTE, GetMaxSize()/MBYTE, (GetUsedSize() + nb_bytes + 3 * sizeof(void*) + GROW_INCREMENT) / MBYTE);
+            dispatch_async( dispatch_get_main_queue(), ^{
+                // grow pool by GROW_INCREMENT MB + requested size
+                ExtendPool( GetUsedSize() + nb_bytes + 3 * sizeof(void*) + GROW_INCREMENT * MBYTE);
+            });
+#endif
         }
         
         return Malloc(aligned_size);
@@ -182,7 +208,7 @@ public:
     {
         if (!real_calloc) initialize_overrides();
         
-        if (m_Internal || !m_MaxSize)
+        if (m_Internal.load(std::memory_order_relaxed) || !m_MaxSize)
             return real_calloc(count, size);
         
         size_t total_size = count * size;
@@ -200,80 +226,92 @@ public:
     {
         if (!real_free) initialize_overrides();
         
-        if (m_Internal || !m_MaxSize || !p) {
+        if (m_Internal.load(std::memory_order_relaxed) || !m_MaxSize || !p) {
             real_free(p);
             return;
         }
         
-        // Check if this is our pointer
-        BlockHeader* header = (BlockHeader*)((char*)p - sizeof(BlockHeader));
-        if (header->token == TOKEN_ID) {
-            Free(p);
-        } else {
-            real_free(p);
+        // First check if pointer is potentially within our pool
+        if (IsValidPointer(p)) {
+            // Only access the header if the pointer is valid
+            BlockHeader* header = (BlockHeader*)((char*)p - sizeof(BlockHeader));
+            if (header->token == TOKEN_ID)
+            {
+                Free(p);
+                return;
+            }
         }
+        // Not our pointer or not valid, use system free
+        real_free(p);
     }
     
     __inline void *_Nullable realloc(void *_Nullable p, size_t new_size)
     {
         if (!real_realloc) initialize_overrides();
         
-        if (m_Internal || !m_MaxSize)
+        if (m_Internal.load(std::memory_order_relaxed) || !m_MaxSize)
             return real_realloc(p, new_size);
         
         if (!p)
             return malloc(new_size);
         
-        BlockHeader* header = (BlockHeader*)((char*)p - sizeof(BlockHeader));
-        if (header->token == TOKEN_ID) {
-            size_t old_size = header->size;
-            
-            // If the new size is smaller, we can just update the size
-            if (new_size <= old_size) {
-                header->size = ALIGN_UP(new_size, MEMORY_ALIGNMENT);
-                return p;
+        if (IsValidPointer(p)) {
+            // Only access the header if the pointer is valid
+            BlockHeader* header = (BlockHeader*)((char*)p - sizeof(BlockHeader));
+            if (header->token == TOKEN_ID) {
+                size_t old_size = header->size;
+                
+                // If the new size is smaller, we can just update the size
+                if (new_size <= old_size) {
+                    header->size = ALIGN_UP(new_size, MEMORY_ALIGNMENT);
+                    return p;
+                }
+                
+                // Allocate new block
+                void* new_p = malloc(new_size);
+                if (!new_p)
+                    return NULL;
+                
+                // Copy data and free old block
+                memcpy(new_p, p, old_size);
+                Free(p);
+                return new_p;
             }
-            
-            // Allocate new block
-            void* new_p = malloc(new_size);
-            if (!new_p)
-                return NULL;
-            
-            // Copy data and free old block
-            memcpy(new_p, p, old_size);
-            Free(p);
-            return new_p;
-        } else {
-            return real_realloc(p, new_size);
         }
+        return real_realloc(p, new_size);
     }
     
     __inline size_t malloc_size(const void *_Nullable p)
     {
         if (!real_malloc_size) initialize_overrides();
         
-        if (m_Internal || !m_MaxSize || !p)
+        if (m_Internal.load(std::memory_order_relaxed) || !m_MaxSize || !p)
             return real_malloc_size(p);
         
-        BlockHeader* header = (BlockHeader*)((char*)p - sizeof(BlockHeader));
-        if (header->token == TOKEN_ID) {
-            return header->size;
-        } else {
-            return real_malloc_size(p);
+        if (IsValidPointer(p)) {
+            // Only access the header if the pointer is valid
+            BlockHeader* header = (BlockHeader*)((char*)p - sizeof(BlockHeader));
+            if (header->token == TOKEN_ID) {
+                return header->size;
+            }
         }
+        return real_malloc_size(p);
     }
+    
     __inline size_t malloc_usable_size(const void *_Nullable p)
     {
         if (!real_malloc_usable_size) initialize_overrides();
         
-        if (m_Internal || !m_MaxSize || !p)
+        if (m_Internal.load(std::memory_order_relaxed) || !m_MaxSize || !p)
             return real_malloc_usable_size(p);
         
-        BlockHeader* header = (BlockHeader*)((char*)p - sizeof(BlockHeader));
-        if (header->token == TOKEN_ID) {
-            return header->size;
+        if (IsValidPointer(p)) {
+            // Only access the header if the pointer is valid
+            BlockHeader* header = (BlockHeader*)((char*)p - sizeof(BlockHeader));
+            if (header->token == TOKEN_ID) {
+                return header->size;
+            }
         }
-        
         return real_malloc_usable_size(p);
     }
     
@@ -436,14 +474,14 @@ protected:
     void *_Nullable Malloc(size_t requestedSize)
     {
         m_Lock.trylock();
-        m_Internal = true;
+        m_Internal.store(true, std::memory_order_relaxed);
         
         // Add space for the header and ensure alignment
         size_t totalSize = requestedSize + sizeof(BlockHeader);
         totalSize = ALIGN_UP(totalSize, MEMORY_ALIGNMENT);
         
         if (m_FreeSize < totalSize) {
-            m_Internal = false;
+            m_Internal.store(false, std::memory_order_relaxed);
             m_Lock.unlock();
             return NULL;
         }
@@ -451,7 +489,7 @@ protected:
         // Find the best fit block
         size_t offset, blockSize;
         if (!FindBestFit(totalSize, offset, blockSize)) {
-            m_Internal = false;
+            m_Internal.store(false, std::memory_order_relaxed);
             m_Lock.unlock();
             return NULL;
         }
@@ -472,7 +510,7 @@ protected:
         m_FreeSize -= blockSize;
         m_AllocCount++;
         
-        m_Internal = false;
+        m_Internal.store(false, std::memory_order_relaxed);
         m_Lock.unlock();
         
         // Return pointer to the usable memory (after the header)
@@ -486,14 +524,13 @@ protected:
             return;
             
         m_Lock.lock();
-        m_Internal = true;
-        
+        m_Internal.store(true, std::memory_order_relaxed);
+
         // Get the block header
         BlockHeader* header = (BlockHeader*)((char*)ptr - sizeof(BlockHeader));
-        
         if (header->token != TOKEN_ID) {
             fprintf(stderr, "WARNING: Trying to free non-native pointer, incorrect tokenID\n");
-            m_Internal = false;
+            m_Internal.store(false, std::memory_order_relaxed);
             m_Lock.unlock();
             return;
         }
@@ -507,7 +544,7 @@ protected:
         m_FreeSize += size;
         m_FreeCount++;
         
-        m_Internal = false;
+        m_Internal.store(false, std::memory_order_relaxed);
         m_Lock.unlock();
     }
     
@@ -531,7 +568,7 @@ private:
     size_t m_FreeCount;                         // Number of frees
     
     AtomicLock m_Lock;                          // Thread synchronization
-    volatile bool m_Internal;                   // Flag for internal operations
+    std::atomic<bool> m_Internal;               // Flag for internal operations
 };
 
 #if !defined(DISABLE_NEWDELETE_OVERRIDE)
