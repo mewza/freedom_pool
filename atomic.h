@@ -1,6 +1,6 @@
 // atomic.h (c) 2023-2025 Dmitry Bodlyrev
-// -------------------------------------------------------------------------
-// implements: AtomicLock, AtomicSema, HashClass, AtomicThread
+// --------------------------------------
+// implements: AtomicLock, AtomicSema
 
 #ifndef H_ATOMIC
 #define H_ATOMIC
