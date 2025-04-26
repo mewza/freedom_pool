@@ -18,8 +18,7 @@
 #include <dispatch/queue.h>
 #include <malloc/malloc.h>
 #include <assert.h>
-#include <mss/atomic.h>
-#include <mss/mem.h>
+#include "atomic.h"
 
 #include <map>
 #include <iostream>
