@@ -2,6 +2,7 @@ FreedomPool v1.5
 -----------------
 
 v1.5: Implemented IsValidPointer for safety, modernized volatile m_Internal with std::atomic
+
 v1.4: Optimized (removed multimap bottlebneck), proper implementation of configurable memory alignment,
       default: 64, stable as a rock I actively use it in my huge multimedia project, with no troubles.
 
